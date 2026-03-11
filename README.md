@@ -43,15 +43,19 @@ On first boot the app seeds 6 fictional patients and geocodes their addresses vi
 - Quick actions: plan route, view GA alerts, navigate to patients
 
 ### Calendar
-- Month view with color-coded day cells (light = 1+ visits, dark = 3+ visits, gold outline = today)
+- Month view with 4-level color-coded day cells (darker green = more appointments, gold outline = today)
+- Appointment count shown in the top-right corner of each day cell
 - Click any day to see the full appointment list with times and visit types
 - Add, edit, or cancel appointments from the day detail view
 
 ### Routes
+- Set a **home starting point** — address is geocoded once and persisted across sessions
 - Date picker to select any day
-- **Optimize Route** button runs a nearest-neighbor algorithm to find the most efficient visit order
-- Leaflet/OpenStreetMap map shows patient pins and draws the route as a polyline
-- Ordered stop list with estimated travel time between each stop
+- **Optimize Route** button runs a nearest-neighbor TSP heuristic to find the most efficient visit order, then fetches the actual road path from OSRM
+- Full **round trip**: route runs home → appointments → home with real road geometry drawn on the map
+- Ordered stop list shows real drive times and distances per leg (from OSRM, falls back to Haversine estimate if OSRM is unavailable)
+- **Drag-to-reorder** stops manually — map route redraws instantly and the new order is auto-saved
+- Total round-trip travel time shown in the header
 
 ### Mothers
 - Full patient list with status, gestational age, due date, phone
@@ -114,6 +118,7 @@ juno/
 | Map | Leaflet.js v1.9.4 + OpenStreetMap | Free, no API key. Designed to swap to Google Maps later. |
 | Geocoding | Nominatim (OpenStreetMap) | Free, 1 req/sec rate limit, results cached in SQLite |
 | Route optimization | Nearest-neighbor TSP heuristic | Pure Python, Haversine formula, O(n²) |
+| Road routing | OSRM demo API | Free, no API key. Returns real road geometry + drive times. Falls back to Haversine if unavailable. |
 
 ---
 
@@ -179,32 +184,41 @@ DELETE /api/appointments/<id>               Cancel appointment
 
 ### Routes
 ```
-POST   /api/routes/optimize    Body: {date}. Optimize + save route. Returns ordered list + legs.
+POST   /api/routes/optimize    Body: {date, start_lat?, start_lon?, start_address?}. Optimize + save route. Returns ordered list + legs + road_geometry.
+POST   /api/routes/save        Body: {date, ordered_appointment_ids, estimated_travel_minutes}. Save a manually reordered route.
 GET    /api/routes/<date>      Get previously saved route for a date.
+GET    /api/geocode?address=   Geocode an address. Returns {lat, lon, address}.
 ```
 
 ---
 
 ## Route Optimization
 
-The route algorithm is a **nearest-neighbor TSP heuristic**:
+Route planning is a two-step process:
+
+### Step 1 — Visit order (TSP, backend)
+A **nearest-neighbor TSP heuristic** determines which patient to visit in which order:
 
 1. Take all appointments for the day where the patient has a geocoded address
-2. Start from the earliest appointment by scheduled time
-3. Greedily pick the nearest unvisited patient (by straight-line Haversine distance)
-4. Repeat until all patients are visited
-5. Append any ungeocodable patients at the end in time order
+2. If a home starting point is set, pick the nearest appointment to home as the first stop
+3. Greedily pick the nearest unvisited patient (by Haversine straight-line distance) until all are visited
+4. Append any ungeocodable patients at the end in time order
+5. Append a return leg back to home
 
-Travel time is estimated at **30 km/h average** (urban driving). The algorithm runs in O(n²) which is well within bounds for typical caseloads of 5–10 patients per day.
+Haversine is fast and good enough as an ordering heuristic — road distances are roughly proportional to straight-line distances.
+
+### Step 2 — Road geometry (OSRM)
+After the order is determined, a single call is made to the **OSRM demo API** with all waypoints. OSRM returns:
+- The actual road path as a GeoJSON LineString (drawn on the Leaflet map)
+- Real drive durations and distances per leg (replaces the Haversine estimates in the stop list)
+
+If OSRM is unavailable the app falls back to Haversine estimates and straight-line polylines — no crash, no user-visible error.
+
+### Manual reorder
+After optimization the midwife can drag stops up or down. The map redraws with straight lines (no OSRM call on drag to avoid latency) and the new order is saved to the DB immediately.
 
 ### Why not a real TSP solver?
-Nearest-neighbor is ~20% suboptimal in the worst case but is:
-- Deterministic (same input always gives same output)
-- Fast (instant for n < 20)
-- No external dependency
-- Good enough for the problem scale
-
-A more optimal solver (e.g. Google OR-Tools) can be dropped into `tools/route.py` later without touching any other file.
+Nearest-neighbor is ~20% suboptimal in the worst case but is deterministic, instant for n < 20, and dependency-free. A solver like Google OR-Tools can be dropped into `tools/route.py` later without touching any other file.
 
 ---
 
@@ -231,15 +245,18 @@ All map logic is isolated in `mapManager` in `script.js`. To swap Leaflet for Go
 
 ```
 CONFIG          Constants (map center, route color)
-state           Global mutable state (current view, selected date, Leaflet map ref)
-api             Fetch wrappers + namespaced endpoint calls
+state           Global mutable state (current view, selected date, home location)
+api             Fetch wrappers + namespaced endpoint calls (patients, appointments, routes, geocode)
 router          navigateTo(view, params) — wires nav clicks, destroys map on leave
-utils           today(), formatDate(), showToast(), gaLabel(), isGAAlert(), escapeHtml()
-mapManager      Leaflet singleton: init(), addPin(), drawRoute(), clearPins(), destroy()
+utils           today(), formatDate(), showToast(), haversine(), travelMinutes(), confirm(), escapeHtml()
+mapManager      Leaflet singleton: init(), addPin(), addHomePin(), drawRoute(apts, home, roadGeometry), clearPins(), destroy()
 views
-  └─ dashboard  Metrics, week strip, quick actions
+  └─ dashboard  Metrics, week strip, quick actions, Add Mother shortcut
   └─ calendar   Month grid + day detail with appointment cards
-  └─ routeView  Date picker, optimize button, map + ordered stop list
+  └─ routeView  Home start, date picker, optimize button, map + draggable stop list
+      ├─ _recalcLegs()         Client-side Haversine leg recalculation (used on drag)
+      ├─ _renderRouteResult()  Renders map + stop list; accepts optional OSRM road geometry
+      └─ _attachDragHandlers() HTML5 drag-and-drop with event delegation on the list card
   └─ mothers    Patient table with edit/discharge
 modals
   └─ patient    Add/edit patient form (with inline geocoding feedback)
@@ -297,7 +314,8 @@ Typography: **Inter** (body) + **Playfair Display** (headings)
 
 The following are natural next steps, roughly in priority order:
 
-- [ ] **Google Maps integration** — swap Leaflet for Google Maps when a key is available (see swap plan above)
+- [ ] **OSRM on drag reorder** — call OSRM after a manual drag to update road geometry (currently falls back to straight lines on drag)
+- [ ] **Switch to OpenRouteService** — production-grade routing API with a free tier (2,000 req/day) for when OSRM demo isn't suitable
 - [ ] **Real-time geocoding fallback** — show a map picker if Nominatim fails to find an address
 - [ ] **Patient notes history** — timestamped visit notes per appointment
 - [ ] **Export** — PDF route sheet for the day (printable)
