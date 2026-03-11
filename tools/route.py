@@ -66,6 +66,66 @@ def nearest_neighbor_route(appointments, start_index=0):
     return route
 
 
+def fetch_osrm_route(waypoints):
+    """
+    Call the OSRM demo API to get road-following geometry and real travel times.
+
+    Args:
+        waypoints: list of (lat, lon) tuples in visit order
+
+    Returns:
+        {
+            "geometry": [[lat, lon], ...],   # actual road path for Leaflet
+            "legs": [{"distance_km", "minutes"}, ...],
+            "total_minutes": int,
+            "total_km": float,
+        }
+        or None on any failure (caller falls back to haversine data).
+    """
+    if len(waypoints) < 2:
+        return None
+
+    # OSRM expects lon,lat order
+    coords_str = ";".join(f"{lon},{lat}" for lat, lon in waypoints)
+    url = (
+        f"http://router.project-osrm.org/route/v1/driving/{coords_str}"
+        f"?overview=full&geometries=geojson&steps=false"
+    )
+
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Juno-Midwife-App/1.0"})
+        with urllib.request.urlopen(req, timeout=10) as response:
+            data = json.loads(response.read())
+
+        if data.get("code") != "Ok" or not data.get("routes"):
+            print(f"[osrm] Unexpected response: {data.get('code')}", file=sys.stderr)
+            return None
+
+        route = data["routes"][0]
+
+        # Convert geometry coordinates from [lon, lat] → [lat, lon] for Leaflet
+        geometry = [[c[1], c[0]] for c in route["geometry"]["coordinates"]]
+
+        legs = [
+            {
+                "distance_km": round(leg["distance"] / 1000, 2),
+                "minutes": max(1, int(leg["duration"] / 60)),
+            }
+            for leg in route.get("legs", [])
+        ]
+
+        return {
+            "geometry": geometry,
+            "legs": legs,
+            "total_minutes": max(1, int(route["duration"] / 60)),
+            "total_km": round(route["distance"] / 1000, 2),
+        }
+
+    except Exception as e:
+        print(f"[osrm] Routing failed, falling back to haversine: {e}", file=sys.stderr)
+        return None
+
+
 def optimize_route(appointments, start_location=None):
     """
     Top-level route optimization. Called by server.py.
@@ -148,6 +208,38 @@ def optimize_route(appointments, start_location=None):
         })
         total_minutes += mins
 
+    # Append return-home leg from last geocoded stop back to home
+    if has_home:
+        last = ordered_geocoded[-1]
+        return_dist = haversine(last["lat"], last["lon"], home_lat, home_lon)
+        return_mins = travel_minutes(return_dist)
+        legs.append({
+            "from_id": last["id"],
+            "to_id": "home",
+            "distance_km": round(return_dist, 2),
+            "minutes": return_mins,
+        })
+        total_minutes += return_mins
+
+    # Build OSRM waypoints: home → ordered geocoded apts → home
+    osrm_waypoints = []
+    if has_home:
+        osrm_waypoints.append((home_lat, home_lon))
+    osrm_waypoints.extend([(a["lat"], a["lon"]) for a in ordered_geocoded])
+    if has_home:
+        osrm_waypoints.append((home_lat, home_lon))
+
+    road_geometry = None
+    if len(osrm_waypoints) >= 2:
+        osrm = fetch_osrm_route(osrm_waypoints)
+        if osrm:
+            road_geometry = osrm["geometry"]
+            total_minutes = osrm["total_minutes"]
+            for i, ol in enumerate(osrm["legs"]):
+                if i < len(legs):
+                    legs[i]["distance_km"] = ol["distance_km"]
+                    legs[i]["minutes"] = ol["minutes"]
+
     # Append ungeocodable appointments at the end in time order
     skipped_sorted = sorted(skipped, key=lambda a: a.get("time", ""))
     ordered_all = ordered_geocoded + skipped_sorted
@@ -159,6 +251,7 @@ def optimize_route(appointments, start_location=None):
         "geocoded_count": len(geocoded),
         "skipped_count": len(skipped),
         "start_location": start_location,
+        "road_geometry": road_geometry,
     }
 
 

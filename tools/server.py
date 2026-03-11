@@ -222,6 +222,18 @@ def optimize_route():
     return jsonify(result)
 
 
+@app.route("/api/routes/save", methods=["POST"])
+def save_route():
+    data = request.get_json() or {}
+    date_str = data.get("date")
+    ordered_ids = data.get("ordered_appointment_ids", [])
+    total_minutes = int(data.get("estimated_travel_minutes", 0))
+    if not date_str:
+        return jsonify({"error": "date is required"}), 400
+    db.save_route(date_str, ordered_ids, total_minutes)
+    return jsonify({"ok": True})
+
+
 @app.route("/api/routes/<date_str>", methods=["GET"])
 def get_route(date_str):
     saved = db.get_route(date_str)

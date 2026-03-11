@@ -652,3 +652,42 @@ h3 {
 }
 
 .summary-bar strong { color: var(--text-dark); }
+
+/* --- Route drag-and-drop --- */
+.drag-handle {
+    font-size: 1.1rem;
+    color: var(--grey-mid);
+    cursor: grab;
+    padding: 0 6px 0 0;
+    user-select: none;
+    flex-shrink: 0;
+    line-height: 1;
+    align-self: center;
+    transition: color 0.15s;
+}
+
+.route-stop[data-apt-idx]:hover .drag-handle {
+    color: var(--text-muted);
+}
+
+.route-stop.dragging {
+    opacity: 0.4;
+    background: var(--grey-light);
+}
+
+.route-stop.drag-over {
+    outline: 2px dashed var(--sage-green);
+    outline-offset: -2px;
+    background: rgba(168, 186, 154, 0.1);
+}
+
+.route-stop-home {
+    opacity: 0.85;
+    cursor: default;
+}
+
+/* --- Optimize animate-in --- */
+@keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-16px); }
+    to   { opacity: 1; transform: translateX(0); }
+}

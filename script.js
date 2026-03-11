@@ -8,7 +8,7 @@ const CONFIG = {
     MAP_DEFAULT: [51.1657, 10.4515], // Center of Germany
     MAP_ZOOM: 6,
     MAP_ZOOM_CITY: 13,
-    ROUTE_COLOR: '#A8BA9A',
+    ROUTE_COLOR: '#2D5A27',
 };
 
 // =============================================================================
@@ -59,6 +59,11 @@ const api = {
             ...(startLat != null ? { start_lat: startLat, start_lon: startLon, start_address: startAddress || '' } : {}),
         }),
         get:      (date)  => api.get(`/api/routes/${date}`),
+        save:     (date, orderedIds, totalMinutes) => api.post('/api/routes/save', {
+            date,
+            ordered_appointment_ids: orderedIds,
+            estimated_travel_minutes: totalMinutes,
+        }),
     },
     geocode: (address) => api.get(`/api/geocode?address=${encodeURIComponent(address)}`),
 };
@@ -121,6 +126,39 @@ const utils = {
         d.appendChild(document.createTextNode(str || ''));
         return d.innerHTML;
     },
+
+    haversine(lat1, lon1, lat2, lon2) {
+        const R = 6371.0;
+        const toRad = x => x * Math.PI / 180;
+        const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    },
+
+    travelMinutes(distKm) {
+        return Math.round((distKm / 30) * 60);
+    },
+
+    confirm(message) {
+        return new Promise(resolve => {
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay';
+            overlay.style.zIndex = '2000';
+            overlay.innerHTML = `
+                <div class="modal-box" style="width:380px;max-width:95vw;">
+                    <p style="margin-bottom:1.5rem;line-height:1.5;">${utils.escapeHtml(message)}</p>
+                    <div class="form-actions" style="margin-top:0;padding-top:0;border-top:none;">
+                        <button class="btn-secondary" id="confirm-no">Cancel</button>
+                        <button class="btn-danger" id="confirm-yes">Confirm</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            overlay.querySelector('#confirm-yes').addEventListener('click', () => { overlay.remove(); resolve(true); });
+            overlay.querySelector('#confirm-no').addEventListener('click', () => { overlay.remove(); resolve(false); });
+            overlay.addEventListener('click', e => { if (e.target === overlay) { overlay.remove(); resolve(false); } });
+        });
+    },
 };
 
 // =============================================================================
@@ -162,21 +200,31 @@ const mapManager = {
         return marker;
     },
 
-    drawRoute(orderedApts) {
+    drawRoute(orderedApts, startLocation = null, roadGeometry = null) {
         if (!this._map) return;
-        const coords = orderedApts
-            .filter(a => a.lat != null && a.lon != null)
-            .map(a => [a.lat, a.lon]);
 
-        if (coords.length === 0) return;
+        // Use real road geometry from OSRM if available, otherwise fall back to straight lines
+        let coords;
+        if (roadGeometry && roadGeometry.length >= 2) {
+            coords = roadGeometry; // already [lat, lon] pairs
+        } else {
+            const aptCoords = orderedApts
+                .filter(a => a.lat != null && a.lon != null)
+                .map(a => [a.lat, a.lon]);
+            if (aptCoords.length === 0) return;
+            coords = [];
+            if (startLocation && startLocation.lat != null) coords.push([startLocation.lat, startLocation.lon]);
+            coords.push(...aptCoords);
+            if (startLocation && startLocation.lat != null) coords.push([startLocation.lat, startLocation.lon]);
+        }
 
         if (this._polyline) {
             this._polyline.remove();
         }
         this._polyline = L.polyline(coords, {
             color: CONFIG.ROUTE_COLOR,
-            weight: 3,
-            opacity: 0.85,
+            weight: 5,
+            opacity: 0.9,
         }).addTo(this._map);
 
         // Fit bounds to all visible points
@@ -323,11 +371,11 @@ const views = {
                         <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:1rem;">
                             ${weekDays.map(d => `
                                 <div class="day-cell ${d.iso === today ? 'today' : ''} ${d.count >= 4 ? 'apt-4' : d.count === 3 ? 'apt-3' : d.count === 2 ? 'apt-2' : d.count === 1 ? 'apt-1' : ''}"
-                                     style="cursor:pointer;flex-direction:column;gap:4px;display:flex;align-items:center;justify-content:center;"
+                                     style="cursor:pointer;flex-direction:column;gap:4px;display:flex;align-items:center;justify-content:center;position:relative;"
                                      data-date="${d.iso}">
+                                    ${d.count > 0 ? `<span style="position:absolute;top:3px;right:5px;font-size:0.6rem;opacity:0.85;line-height:1;">${d.count}</span>` : ''}
                                     <span style="font-size:0.65rem;opacity:0.7;">${d.label}</span>
                                     <span>${d.day}</span>
-                                    ${d.count > 0 ? `<span style="font-size:0.65rem;">${d.count}</span>` : ''}
                                 </div>
                             `).join('')}
                         </div>
@@ -426,9 +474,9 @@ const views = {
                                 count >= 4 ? 'apt-4' : count === 3 ? 'apt-3' : count === 2 ? 'apt-2' : count === 1 ? 'apt-1' : '',
                                 iso === today ? 'today' : '',
                             ].filter(Boolean).join(' ');
-                            return `<div class="day-cell ${cls}" data-date="${iso}" title="${count} appointment${count !== 1 ? 's' : ''}">
+                            return `<div class="day-cell ${cls}" data-date="${iso}" title="${count} appointment${count !== 1 ? 's' : ''}" style="position:relative;">
+                                ${count > 0 ? `<span style="position:absolute;top:3px;right:5px;font-size:0.6rem;opacity:0.85;line-height:1;">${count}</span>` : ''}
                                 ${day}
-                                ${count > 0 ? `<span style="font-size:0.6rem;display:block;opacity:0.8;">${count}</span>` : ''}
                             </div>`;
                         }).join('')}
                     </div>
@@ -436,11 +484,11 @@ const views = {
             `;
 
             document.getElementById('cal-prev').addEventListener('click', () => {
-                state.calendarMonth.setMonth(state.calendarMonth.getMonth() - 1);
+                state.calendarMonth = new Date(state.calendarMonth.getFullYear(), state.calendarMonth.getMonth() - 1, 1);
                 views.calendar.render();
             });
             document.getElementById('cal-next').addEventListener('click', () => {
-                state.calendarMonth.setMonth(state.calendarMonth.getMonth() + 1);
+                state.calendarMonth = new Date(state.calendarMonth.getFullYear(), state.calendarMonth.getMonth() + 1, 1);
                 views.calendar.render();
             });
             document.getElementById('cal-new-apt').addEventListener('click', () => modals.appointment(today));
@@ -571,7 +619,7 @@ const views = {
                     const ordered = (saved.ordered_appointment_ids || [])
                         .map(id => aptById[id])
                         .filter(Boolean);
-                    views.routeView._renderRouteResult(ordered, [], saved.estimated_travel_minutes);
+                    views.routeView._renderRouteResult(ordered, [], saved.estimated_travel_minutes, false, state.homeLocation);
                 }
             } catch (_) {
                 // No saved route — just show the map empty
@@ -633,7 +681,7 @@ const views = {
                         home ? home.address : null,
                     );
                     mapManager.clearPins();
-                    views.routeView._renderRouteResult(result.ordered_appointments, result.legs, result.total_travel_minutes, false, result.start_location);
+                    views.routeView._renderRouteResult(result.ordered_appointments, result.legs, result.total_travel_minutes, false, result.start_location, true, result.road_geometry || null);
                     utils.showToast(`Route optimized — ${result.total_travel_minutes} min total travel`);
                 } catch (err) {
                     utils.showToast(err.message, 'error');
@@ -642,10 +690,47 @@ const views = {
                     if (b) { b.textContent = 'Optimize Route'; b.disabled = false; }
                 }
             });
+
+            views.routeView._attachDragHandlers();
         },
 
-        _renderRouteResult(orderedApts, legs, totalMinutes, unoptimized = false, startLocation = null) {
-            // Home pin + appointment pins
+        _currentApts: [],
+        _currentStartLocation: null,
+
+        _recalcLegs(apts, startLocation) {
+            const geo = apts.filter(a => a.lat != null && a.lon != null);
+            const hasHome = startLocation && startLocation.lat != null;
+            const legs = [];
+            let totalMinutes = 0;
+
+            if (hasHome && geo.length > 0) {
+                const dist = utils.haversine(startLocation.lat, startLocation.lon, geo[0].lat, geo[0].lon);
+                const mins = utils.travelMinutes(dist);
+                legs.push({ from_id: 'home', to_id: geo[0].id, distance_km: Math.round(dist * 100) / 100, minutes: mins });
+                totalMinutes += mins;
+            }
+            for (let i = 1; i < geo.length; i++) {
+                const dist = utils.haversine(geo[i-1].lat, geo[i-1].lon, geo[i].lat, geo[i].lon);
+                const mins = utils.travelMinutes(dist);
+                legs.push({ from_id: geo[i-1].id, to_id: geo[i].id, distance_km: Math.round(dist * 100) / 100, minutes: mins });
+                totalMinutes += mins;
+            }
+            if (hasHome && geo.length > 0) {
+                const last = geo[geo.length - 1];
+                const dist = utils.haversine(last.lat, last.lon, startLocation.lat, startLocation.lon);
+                const mins = utils.travelMinutes(dist);
+                legs.push({ from_id: last.id, to_id: 'home', distance_km: Math.round(dist * 100) / 100, minutes: mins });
+                totalMinutes += mins;
+            }
+            return { legs, totalMinutes };
+        },
+
+        _renderRouteResult(orderedApts, legs, totalMinutes, unoptimized = false, startLocation = null, animate = false, roadGeometry = null) {
+            // Store live state for drag reorder
+            this._currentApts = orderedApts;
+            this._currentStartLocation = startLocation;
+
+            // Map: pins + route line
             mapManager.clearPins();
             if (startLocation && startLocation.lat != null) {
                 mapManager.addHomePin(startLocation.lat, startLocation.lon, startLocation.address);
@@ -658,58 +743,126 @@ const views = {
                     `);
                 }
             });
-            if (!unoptimized) mapManager.drawRoute(orderedApts);
+            if (!unoptimized) mapManager.drawRoute(orderedApts, startLocation, roadGeometry);
 
-            // Separate home leg from appointment-to-appointment legs
+            // Separate home→first, apt-to-apt, and last→home legs
             let homeLeg = null;
+            let returnLeg = null;
             let aptLegs = legs || [];
             if (aptLegs.length > 0 && aptLegs[0].from_id === 'home') {
                 homeLeg = aptLegs[0];
                 aptLegs = aptLegs.slice(1);
             }
+            if (aptLegs.length > 0 && aptLegs[aptLegs.length - 1].to_id === 'home') {
+                returnLeg = aptLegs[aptLegs.length - 1];
+                aptLegs = aptLegs.slice(0, -1);
+            }
 
-            // Render stop list
             const listCard = document.getElementById('route-list-card');
             if (!listCard) return;
 
             const geocoded = orderedApts.filter(a => a.lat != null).length;
 
             const homeSection = startLocation ? `
-                <div class="route-stop" style="opacity:0.85;">
+                <div class="route-stop route-stop-home">
                     <div class="route-stop-number" style="background:var(--text-dark);font-size:1rem;">🏠</div>
                     <div style="flex:1;">
                         <strong>Starting Point</strong>
                         <div style="font-size:0.82rem;color:var(--text-muted);margin-top:2px;">${utils.escapeHtml(startLocation.address || '')}</div>
-                        ${homeLeg ? `<div class="travel-segment" style="margin-left:0;margin-top:6px;">→ ${homeLeg.minutes} min · ${homeLeg.distance_km} km to first stop</div>` : ''}
+                        ${homeLeg ? `<div class="travel-segment" style="margin-left:0;margin-top:6px;">↓ ${homeLeg.minutes} min · ${homeLeg.distance_km} km to first stop</div>` : ''}
                     </div>
                 </div>` : '';
 
             listCard.innerHTML = `
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
                     <h2 style="margin:0;">${unoptimized ? 'Appointments' : 'Optimized Route'}</h2>
-                    ${!unoptimized && totalMinutes > 0 ? `<span style="font-size:0.85rem;color:var(--text-muted);">~${totalMinutes} min transit</span>` : ''}
+                    <span id="route-total-time" style="font-size:0.85rem;color:var(--text-muted);">${!unoptimized && totalMinutes > 0 ? `~${totalMinutes} min total` : ''}</span>
                 </div>
                 ${geocoded < orderedApts.length ? `<div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem;">⚠️ ${orderedApts.length - geocoded} patient${orderedApts.length - geocoded !== 1 ? 's' : ''} without map location — shown at end</div>` : ''}
                 ${orderedApts.length === 0 ? '<div class="empty-state"><p>No appointments for this date.</p></div>' : `
-                    ${homeSection}
-                    ${orderedApts.map((apt, i) => {
-                        const leg = aptLegs[i - 1];
-                        const travelDiv = leg ? `<div class="travel-segment">↑ ${leg.minutes} min · ${leg.distance_km} km</div>` : '';
-                        return `${travelDiv}
-                        <div class="route-stop">
-                            <div class="route-stop-number">${i + 1}</div>
-                            <div style="flex:1;">
-                                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-                                    <strong>${utils.escapeHtml(apt.patient_name)}</strong>
-                                    <span style="font-size:0.82rem;color:var(--text-muted);">${utils.formatTime(apt.time)}</span>
+                    <div id="route-stops-list">
+                        ${homeSection}
+                        ${orderedApts.map((apt, i) => {
+                            const leg = aptLegs[i - 1];
+                            const travelDiv = leg ? `<div class="travel-segment">↓ ${leg.minutes} min · ${leg.distance_km} km</div>` : '';
+                            const animStyle = animate ? `animation: slideInLeft 0.3s ease both; animation-delay: ${i * 60}ms;` : '';
+                            return `${travelDiv}
+                            <div class="route-stop" draggable="true" data-apt-idx="${i}" style="${animStyle}">
+                                <div class="drag-handle" title="Drag to reorder">⠿</div>
+                                <div class="route-stop-number">${i + 1}</div>
+                                <div style="flex:1;">
+                                    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                                        <strong>${utils.escapeHtml(apt.patient_name)}</strong>
+                                        <span style="font-size:0.82rem;color:var(--text-muted);">${utils.formatTime(apt.time)}</span>
+                                    </div>
+                                    <div style="font-size:0.82rem;color:var(--text-muted);margin-top:2px;">${utils.escapeHtml(apt.address || '')}</div>
+                                    <div style="margin-top:4px;">${utils.visitBadge(apt.visit_type)}</div>
                                 </div>
-                                <div style="font-size:0.82rem;color:var(--text-muted);margin-top:2px;">${utils.escapeHtml(apt.address || '')}</div>
-                                <div style="margin-top:4px;">${utils.visitBadge(apt.visit_type)}</div>
-                            </div>
-                        </div>`;
-                    }).join('')}
+                            </div>`;
+                        }).join('')}
+                        ${startLocation && returnLeg ? `
+                            <div class="travel-segment">↓ ${returnLeg.minutes} min · ${returnLeg.distance_km} km</div>
+                            <div class="route-stop route-stop-home">
+                                <div class="route-stop-number" style="background:var(--text-dark);font-size:1rem;">🏠</div>
+                                <div style="flex:1;">
+                                    <strong>Return Home</strong>
+                                    <div style="font-size:0.82rem;color:var(--text-muted);margin-top:2px;">${utils.escapeHtml(startLocation.address || '')}</div>
+                                </div>
+                            </div>` : ''}
+                    </div>
                 `}
             `;
+        },
+
+        _attachDragHandlers() {
+            const listCard = document.getElementById('route-list-card');
+            if (!listCard) return;
+
+            let dragSrcIdx = null;
+
+            listCard.addEventListener('dragstart', e => {
+                const stop = e.target.closest('.route-stop[data-apt-idx]');
+                if (!stop) return;
+                dragSrcIdx = parseInt(stop.dataset.aptIdx);
+                stop.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+
+            listCard.addEventListener('dragover', e => {
+                const stop = e.target.closest('.route-stop[data-apt-idx]');
+                if (!stop || dragSrcIdx === null) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                listCard.querySelectorAll('.route-stop[data-apt-idx]').forEach(el => el.classList.remove('drag-over'));
+                if (parseInt(stop.dataset.aptIdx) !== dragSrcIdx) stop.classList.add('drag-over');
+            });
+
+            listCard.addEventListener('dragleave', e => {
+                const stop = e.target.closest('.route-stop[data-apt-idx]');
+                if (stop) stop.classList.remove('drag-over');
+            });
+
+            listCard.addEventListener('drop', e => {
+                const stop = e.target.closest('.route-stop[data-apt-idx]');
+                if (!stop || dragSrcIdx === null) return;
+                e.preventDefault();
+                const dropIdx = parseInt(stop.dataset.aptIdx);
+                if (dropIdx === dragSrcIdx) return;
+
+                const apts = [...this._currentApts];
+                const [moved] = apts.splice(dragSrcIdx, 1);
+                apts.splice(dropIdx, 0, moved);
+
+                const { legs, totalMinutes } = this._recalcLegs(apts, this._currentStartLocation);
+                this._renderRouteResult(apts, legs, totalMinutes, false, this._currentStartLocation, false);
+
+                api.routes.save(state.routeDate, apts.map(a => a.id), totalMinutes).catch(console.error);
+            });
+
+            listCard.addEventListener('dragend', () => {
+                listCard.querySelectorAll('.route-stop').forEach(el => el.classList.remove('dragging', 'drag-over'));
+                dragSrcIdx = null;
+            });
         },
     },
 
@@ -755,7 +908,7 @@ const views = {
                                             <strong>${utils.escapeHtml(p.name)}</strong>
                                             ${p.lat == null ? '<br><span style="font-size:0.72rem;color:var(--pending);">⚠ No map location</span>' : ''}
                                         </td>
-                                        <td><span class="status-badge ${p.status}">${p.status}</span></td>
+                                        <td><span class="status-badge ${p.status}">${p.status === 'active' ? 'Pregnant' : p.status}</span></td>
                                         <td class="${utils.isGAAlert(p.gestational_age_weeks) ? 'ga-alert' : ''}">${utils.gaLabel(p.gestational_age_weeks, p.gestational_age_days)}</td>
                                         <td style="color:var(--text-muted);font-size:0.88rem;">${p.due_date || '—'}</td>
                                         <td style="color:var(--text-muted);font-size:0.88rem;">${utils.escapeHtml(p.phone) || '—'}</td>
@@ -783,7 +936,7 @@ const views = {
 
             document.querySelectorAll('.discharge-patient').forEach(btn => {
                 btn.addEventListener('click', async () => {
-                    if (!confirm(`Discharge ${btn.dataset.name}? This will remove them from your active list.`)) return;
+                    if (!await utils.confirm(`Discharge ${btn.dataset.name}? This will remove them from your active list.`)) return;
                     try {
                         await api.patients.delete(btn.dataset.id);
                         utils.showToast(`${btn.dataset.name} discharged`);
@@ -833,7 +986,7 @@ const modals = {
                     <div class="form-group">
                         <label>Status</label>
                         <select id="f-status" class="input-field">
-                            <option value="active" ${p.status === 'active' || !p.status ? 'selected' : ''}>Active (pregnant)</option>
+                            <option value="active" ${p.status === 'active' || !p.status ? 'selected' : ''}>Pregnant</option>
                             <option value="postpartum" ${p.status === 'postpartum' ? 'selected' : ''}>Postpartum</option>
                         </select>
                     </div>
@@ -972,7 +1125,7 @@ const modals = {
         overlay.addEventListener('click', e => { if (e.target === overlay) modals._close(); });
 
         document.getElementById('modal-cancel-apt')?.addEventListener('click', async () => {
-            if (!confirm('Cancel this appointment?')) return;
+            if (!await utils.confirm('Cancel this appointment?')) return;
             try {
                 await api.appointments.cancel(apt.id);
                 utils.showToast('Appointment cancelled');
