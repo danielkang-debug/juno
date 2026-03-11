@@ -1,0 +1,25 @@
+# Database (never commit real data)
+juno.db
+
+# Environment variables (never commit secrets)
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
+
+# Temporary workbench
+.tmp/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+.claude/
