@@ -252,12 +252,32 @@ h3 {
    Appended below existing design system. All original variables preserved.
    ========================================================================== */
 
-/* --- Calendar additions --- */
-.day-cell.heavy-load {
-    background: var(--sage-dark);
-    color: var(--white);
-    box-shadow: 0 4px 12px rgba(142, 159, 130, 0.45);
+/* --- Calendar load levels (1–4 appointments, progressively darker green) --- */
+.day-cell.apt-1 {
+    background: #D4E3CF;
+    color: var(--text-dark);
 }
+
+.day-cell.apt-2 {
+    background: #B0C9A9;
+    color: var(--text-dark);
+}
+
+.day-cell.apt-3 {
+    background: var(--sage-green);
+    color: var(--white);
+    box-shadow: 0 4px 12px rgba(168, 186, 154, 0.3);
+}
+
+.day-cell.apt-4 {
+    background: #5E7A55;
+    color: var(--white);
+    box-shadow: 0 4px 12px rgba(94, 122, 85, 0.4);
+}
+
+/* Keep legacy classes for any old references */
+.day-cell.active-load { background: var(--sage-green); color: var(--white); }
+.day-cell.heavy-load  { background: var(--sage-dark); color: var(--white); box-shadow: 0 4px 12px rgba(142, 159, 130, 0.45); }
 
 .day-cell.today {
     outline: 2px solid var(--gold);

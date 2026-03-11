@@ -19,6 +19,7 @@ const state = {
     calendarMonth: new Date(),
     routeDate: null,
     leafletMap: null,
+    homeLocation: JSON.parse(localStorage.getItem('juno_home') || 'null'),
 };
 
 // =============================================================================
@@ -53,9 +54,13 @@ const api = {
         cancel:  (id)     => api.delete(`/api/appointments/${id}`),
     },
     routes: {
-        optimize: (date)  => api.post('/api/routes/optimize', { date }),
+        optimize: (date, startLat, startLon, startAddress) => api.post('/api/routes/optimize', {
+            date,
+            ...(startLat != null ? { start_lat: startLat, start_lon: startLon, start_address: startAddress || '' } : {}),
+        }),
         get:      (date)  => api.get(`/api/routes/${date}`),
     },
+    geocode: (address) => api.get(`/api/geocode?address=${encodeURIComponent(address)}`),
 };
 
 // =============================================================================
@@ -140,6 +145,19 @@ const mapManager = {
     addPin(lat, lon, popupHtml) {
         if (!this._map) return;
         const marker = L.marker([lat, lon]).bindPopup(popupHtml).addTo(this._map);
+        this._markers.push(marker);
+        return marker;
+    },
+
+    addHomePin(lat, lon, address) {
+        if (!this._map) return;
+        const icon = L.divIcon({
+            className: '',
+            html: '<div style="background:#2C332A;color:#fff;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:0 2px 8px rgba(0,0,0,0.35);">🏠</div>',
+            iconSize: [34, 34],
+            iconAnchor: [17, 17],
+        });
+        const marker = L.marker([lat, lon], { icon }).bindPopup(`<strong>Starting Point</strong><br>${address || ''}`).addTo(this._map);
         this._markers.push(marker);
         return marker;
     },
@@ -271,7 +289,10 @@ const views = {
                         <h1 style="color:var(--text-dark);margin-bottom:4px;">Welcome back, Clara</h1>
                         <p style="color:var(--text-muted);">${new Date().toLocaleDateString('en-DE', { weekday: 'long', day: 'numeric', month: 'long' })} · ${scheduled} visit${scheduled !== 1 ? 's' : ''} today</p>
                     </div>
-                    <button class="btn-primary" id="dash-new-apt">+ New Appointment</button>
+                    <div style="display:flex;gap:0.75rem;">
+                        <button class="btn-secondary" id="dash-add-mother">+ Add Mother</button>
+                        <button class="btn-primary" id="dash-new-apt">+ New Appointment</button>
+                    </div>
                 </header>
 
                 <div class="dashboard-grid">
@@ -301,7 +322,7 @@ const views = {
                         <h2>This Week</h2>
                         <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:1rem;">
                             ${weekDays.map(d => `
-                                <div class="day-cell ${d.iso === today ? 'today' : ''} ${d.count >= 3 ? 'heavy-load' : d.count >= 1 ? 'active-load' : ''}"
+                                <div class="day-cell ${d.iso === today ? 'today' : ''} ${d.count >= 4 ? 'apt-4' : d.count === 3 ? 'apt-3' : d.count === 2 ? 'apt-2' : d.count === 1 ? 'apt-1' : ''}"
                                      style="cursor:pointer;flex-direction:column;gap:4px;display:flex;align-items:center;justify-content:center;"
                                      data-date="${d.iso}">
                                     <span style="font-size:0.65rem;opacity:0.7;">${d.label}</span>
@@ -334,6 +355,7 @@ const views = {
             `;
 
             document.getElementById('dash-new-apt').addEventListener('click', () => modals.appointment(utils.today()));
+            document.getElementById('dash-add-mother').addEventListener('click', () => modals.patient(null, () => views.dashboard.render()));
             document.getElementById('qa-plan-route')?.addEventListener('click', () => router.navigateTo('routes', { date: utils.today() }));
             document.getElementById('qa-view-mothers')?.addEventListener('click', () => router.navigateTo('mothers'));
             document.querySelectorAll('[data-date]').forEach(cell => {
@@ -401,7 +423,7 @@ const views = {
                             const isWeekend = dow === 0 || dow === 6;
                             const cls = [
                                 isWeekend ? 'weekend' : '',
-                                count >= 3 ? 'heavy-load' : count >= 1 ? 'active-load' : '',
+                                count >= 4 ? 'apt-4' : count === 3 ? 'apt-3' : count === 2 ? 'apt-2' : count === 1 ? 'apt-1' : '',
                                 iso === today ? 'today' : '',
                             ].filter(Boolean).join(' ');
                             return `<div class="day-cell ${cls}" data-date="${iso}" title="${count} appointment${count !== 1 ? 's' : ''}">
@@ -501,6 +523,20 @@ const views = {
                     </div>
                 </header>
 
+                <div class="card" style="padding:1.25rem 1.5rem;margin-bottom:1.5rem;">
+                    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
+                        <span style="font-size:1.1rem;">🏠</span>
+                        <strong style="font-size:0.9rem;color:var(--text-dark);">Starting Point</strong>
+                        ${state.homeLocation ? `<span style="font-size:0.8rem;color:var(--text-muted);margin-left:0.25rem;">${utils.escapeHtml(state.homeLocation.address)}</span>` : `<span style="font-size:0.8rem;color:var(--text-muted);margin-left:0.25rem;">Not set — route starts from first appointment</span>`}
+                    </div>
+                    <div style="display:flex;gap:0.5rem;align-items:center;">
+                        <input type="text" id="home-address-input" class="input-field" style="flex:1;" placeholder="e.g. Musterstr. 1, 10115 Berlin" value="${state.homeLocation ? utils.escapeHtml(state.homeLocation.address) : ''}">
+                        <button class="btn-secondary" id="btn-set-home">Set</button>
+                        ${state.homeLocation ? `<button class="btn-secondary" id="btn-clear-home" style="color:var(--pending);">Clear</button>` : ''}
+                    </div>
+                    <div id="home-status" style="font-size:0.78rem;color:var(--text-muted);margin-top:0.4rem;min-height:1rem;"></div>
+                </div>
+
                 <div class="route-controls" style="margin-bottom:1.5rem;">
                     <input type="date" id="route-date-picker" value="${date}" class="input-field" style="width:180px;">
                     <button class="btn-primary" id="btn-optimize">Optimize Route</button>
@@ -552,6 +588,33 @@ const views = {
                 }
             }
 
+            // Home address set/clear handlers
+            document.getElementById('btn-set-home').addEventListener('click', async () => {
+                const address = document.getElementById('home-address-input').value.trim();
+                if (!address) { utils.showToast('Enter an address first', 'error'); return; }
+                const statusEl = document.getElementById('home-status');
+                const btn = document.getElementById('btn-set-home');
+                btn.disabled = true;
+                statusEl.textContent = 'Geocoding…';
+                try {
+                    const result = await api.geocode(address);
+                    state.homeLocation = { lat: result.lat, lon: result.lon, address: result.address };
+                    localStorage.setItem('juno_home', JSON.stringify(state.homeLocation));
+                    utils.showToast('Starting point saved');
+                    // Re-render to reflect the saved home
+                    views.routeView.render({ date: state.routeDate });
+                } catch (err) {
+                    statusEl.textContent = 'Could not find that address — try a more specific address.';
+                    btn.disabled = false;
+                }
+            });
+
+            document.getElementById('btn-clear-home')?.addEventListener('click', () => {
+                state.homeLocation = null;
+                localStorage.removeItem('juno_home');
+                views.routeView.render({ date: state.routeDate });
+            });
+
             document.getElementById('route-date-picker').addEventListener('change', e => {
                 state.routeDate = e.target.value;
                 router.navigateTo('routes', { date: e.target.value });
@@ -562,9 +625,15 @@ const views = {
                 btn.textContent = 'Optimizing…';
                 btn.disabled = true;
                 try {
-                    const result = await api.routes.optimize(state.routeDate);
+                    const home = state.homeLocation;
+                    const result = await api.routes.optimize(
+                        state.routeDate,
+                        home ? home.lat : null,
+                        home ? home.lon : null,
+                        home ? home.address : null,
+                    );
                     mapManager.clearPins();
-                    views.routeView._renderRouteResult(result.ordered_appointments, result.legs, result.total_travel_minutes);
+                    views.routeView._renderRouteResult(result.ordered_appointments, result.legs, result.total_travel_minutes, false, result.start_location);
                     utils.showToast(`Route optimized — ${result.total_travel_minutes} min total travel`);
                 } catch (err) {
                     utils.showToast(err.message, 'error');
@@ -575,9 +644,12 @@ const views = {
             });
         },
 
-        _renderRouteResult(orderedApts, legs, totalMinutes, unoptimized = false) {
-            // Add map pins
+        _renderRouteResult(orderedApts, legs, totalMinutes, unoptimized = false, startLocation = null) {
+            // Home pin + appointment pins
             mapManager.clearPins();
+            if (startLocation && startLocation.lat != null) {
+                mapManager.addHomePin(startLocation.lat, startLocation.lon, startLocation.address);
+            }
             orderedApts.forEach((apt, i) => {
                 if (apt.lat != null && apt.lon != null) {
                     mapManager.addPin(apt.lat, apt.lon, `
@@ -588,11 +660,29 @@ const views = {
             });
             if (!unoptimized) mapManager.drawRoute(orderedApts);
 
+            // Separate home leg from appointment-to-appointment legs
+            let homeLeg = null;
+            let aptLegs = legs || [];
+            if (aptLegs.length > 0 && aptLegs[0].from_id === 'home') {
+                homeLeg = aptLegs[0];
+                aptLegs = aptLegs.slice(1);
+            }
+
             // Render stop list
             const listCard = document.getElementById('route-list-card');
             if (!listCard) return;
 
             const geocoded = orderedApts.filter(a => a.lat != null).length;
+
+            const homeSection = startLocation ? `
+                <div class="route-stop" style="opacity:0.85;">
+                    <div class="route-stop-number" style="background:var(--text-dark);font-size:1rem;">🏠</div>
+                    <div style="flex:1;">
+                        <strong>Starting Point</strong>
+                        <div style="font-size:0.82rem;color:var(--text-muted);margin-top:2px;">${utils.escapeHtml(startLocation.address || '')}</div>
+                        ${homeLeg ? `<div class="travel-segment" style="margin-left:0;margin-top:6px;">→ ${homeLeg.minutes} min · ${homeLeg.distance_km} km to first stop</div>` : ''}
+                    </div>
+                </div>` : '';
 
             listCard.innerHTML = `
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
@@ -600,9 +690,10 @@ const views = {
                     ${!unoptimized && totalMinutes > 0 ? `<span style="font-size:0.85rem;color:var(--text-muted);">~${totalMinutes} min transit</span>` : ''}
                 </div>
                 ${geocoded < orderedApts.length ? `<div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem;">⚠️ ${orderedApts.length - geocoded} patient${orderedApts.length - geocoded !== 1 ? 's' : ''} without map location — shown at end</div>` : ''}
-                ${orderedApts.length === 0 ? '<div class="empty-state"><p>No appointments for this date.</p></div>' :
-                    orderedApts.map((apt, i) => {
-                        const leg = legs && legs[i - 1];
+                ${orderedApts.length === 0 ? '<div class="empty-state"><p>No appointments for this date.</p></div>' : `
+                    ${homeSection}
+                    ${orderedApts.map((apt, i) => {
+                        const leg = aptLegs[i - 1];
                         const travelDiv = leg ? `<div class="travel-segment">↑ ${leg.minutes} min · ${leg.distance_km} km</div>` : '';
                         return `${travelDiv}
                         <div class="route-stop">
@@ -616,8 +707,8 @@ const views = {
                                 <div style="margin-top:4px;">${utils.visitBadge(apt.visit_type)}</div>
                             </div>
                         </div>`;
-                    }).join('')
-                }
+                    }).join('')}
+                `}
             `;
         },
     },

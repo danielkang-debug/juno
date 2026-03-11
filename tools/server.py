@@ -183,6 +183,17 @@ def cancel_appointment(apt_id):
 # Route Endpoints
 # ---------------------------------------------------------------------------
 
+@app.route("/api/geocode", methods=["GET"])
+def geocode_address():
+    address = request.args.get("address", "").strip()
+    if not address:
+        return jsonify({"error": "address is required"}), 400
+    lat, lon = route_module.geocode_address(address)
+    if lat is None:
+        return jsonify({"error": "Could not geocode address"}), 422
+    return jsonify({"lat": lat, "lon": lon, "address": address})
+
+
 @app.route("/api/routes/optimize", methods=["POST"])
 def optimize_route():
     data = request.get_json() or {}
@@ -190,8 +201,19 @@ def optimize_route():
     if not date_str:
         return jsonify({"error": "date is required"}), 400
 
+    # Optional home starting point (pre-geocoded by frontend)
+    start_location = None
+    start_lat = data.get("start_lat")
+    start_lon = data.get("start_lon")
+    if start_lat is not None and start_lon is not None:
+        start_location = {
+            "lat": float(start_lat),
+            "lon": float(start_lon),
+            "address": data.get("start_address", ""),
+        }
+
     appointments = db.list_appointments_by_date(date_str)
-    result = route_module.optimize_route(appointments)
+    result = route_module.optimize_route(appointments, start_location=start_location)
 
     # Save the optimized route
     ordered_ids = [a["id"] for a in result["ordered_appointments"]]

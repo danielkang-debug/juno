@@ -66,13 +66,15 @@ def nearest_neighbor_route(appointments, start_index=0):
     return route
 
 
-def optimize_route(appointments):
+def optimize_route(appointments, start_location=None):
     """
     Top-level route optimization. Called by server.py.
 
     Args:
         appointments: raw dicts from db.list_appointments_by_date()
                       Each dict must include lat, lon (may be None), id, time, patient_name.
+        start_location: optional dict with keys 'lat', 'lon', 'address'. If provided,
+                        the route begins from this point and a home leg is prepended.
 
     Returns:
         {
@@ -80,7 +82,8 @@ def optimize_route(appointments):
             "legs": [{"from_id", "to_id", "distance_km", "minutes"}],
             "total_travel_minutes": int,
             "geocoded_count": int,
-            "skipped_count": int
+            "skipped_count": int,
+            "start_location": dict | None
         }
     """
     # Split into geocoded (can be routed) and ungeocoded (appended at end)
@@ -92,7 +95,6 @@ def optimize_route(appointments):
 
     # Guard: need at least 2 geocoded points to draw a route
     if len(geocoded) < 2:
-        # Return time-sorted list, no legs
         ordered = sorted(appointments, key=lambda a: a.get("time", ""))
         return {
             "ordered_appointments": ordered,
@@ -100,14 +102,39 @@ def optimize_route(appointments):
             "total_travel_minutes": 0,
             "geocoded_count": len(geocoded),
             "skipped_count": len(skipped),
+            "start_location": start_location,
         }
 
-    # Run nearest-neighbor heuristic
-    ordered_geocoded = nearest_neighbor_route(geocoded, start_index=0)
+    # Determine starting appointment: nearest to home, or first by time
+    has_home = start_location and start_location.get("lat") is not None
+    if has_home:
+        home_lat = start_location["lat"]
+        home_lon = start_location["lon"]
+        start_idx = min(
+            range(len(geocoded)),
+            key=lambda i: haversine(home_lat, home_lon, geocoded[i]["lat"], geocoded[i]["lon"])
+        )
+    else:
+        start_idx = 0
 
-    # Build legs between consecutive stops
+    ordered_geocoded = nearest_neighbor_route(geocoded, start_index=start_idx)
+
+    # Build legs — optionally prepend a home→first_stop leg
     legs = []
     total_minutes = 0
+
+    if has_home:
+        first = ordered_geocoded[0]
+        home_dist = haversine(home_lat, home_lon, first["lat"], first["lon"])
+        home_mins = travel_minutes(home_dist)
+        legs.append({
+            "from_id": "home",
+            "to_id": first["id"],
+            "distance_km": round(home_dist, 2),
+            "minutes": home_mins,
+        })
+        total_minutes += home_mins
+
     for i in range(1, len(ordered_geocoded)):
         prev = ordered_geocoded[i - 1]
         curr = ordered_geocoded[i]
@@ -131,6 +158,7 @@ def optimize_route(appointments):
         "total_travel_minutes": total_minutes,
         "geocoded_count": len(geocoded),
         "skipped_count": len(skipped),
+        "start_location": start_location,
     }
 
 
