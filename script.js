@@ -1,5 +1,5 @@
 // Juno Application — SPA Frontend
-// Architecture: CONFIG → state → api → router → utils → mapManager → views → modals → init
+// Architecture: CONFIG → LANG → state → t() → api → router → utils → mapManager → views → modals → init
 
 // =============================================================================
 // CONFIG
@@ -12,6 +12,320 @@ const CONFIG = {
 };
 
 // =============================================================================
+// LANG — i18n strings (de = default)
+// =============================================================================
+const LANG = {
+    de: {
+        // Nav
+        nav_dashboard: 'Dashboard',
+        nav_calendar: 'Kalender',
+        nav_routes: 'Routen',
+        nav_mothers: 'Mütter',
+        nav_settings: 'Einstellungen',
+
+        // Dashboard
+        welcome: 'Willkommen zurück, Clara',
+        visits_today: (n) => `${n} Besuch${n !== 1 ? 'e' : ''} heute`,
+        active_births: 'Aktive Geburten',
+        visits_today_label: 'Besuche heute',
+        ga_alerts_label: 'GA-Warnungen (≥40W)',
+        daily_pulse: 'Dein Tagesüberblick',
+        daily_pulse_sub: 'Alle Routen für minimale Fahrzeit optimiert.',
+        this_week: 'Diese Woche',
+        quick_actions: 'Schnellaktionen',
+        plan_route: '🗺 Route für heute planen',
+        ga_alert_item: (name, ga) => `⚠️ GA-Warnung: ${name} (${ga})`,
+        no_ga_alerts: '✓ Keine GA-Warnungen heute',
+        view_mothers: (n) => `👩 Alle Mütter ansehen (${n})`,
+        add_mother: '+ Mutter hinzufügen',
+        new_appointment: '+ Neuer Termin',
+
+        // Calendar
+        calendar_title: 'Kalender',
+        calendar_sub: 'Klicke auf einen Tag für Termine',
+        cal_prev: '‹ Zurück',
+        cal_next: 'Weiter ›',
+        weekdays_short: ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'],
+        apt_count: (n) => `${n} Termin${n !== 1 ? 'e' : ''} geplant`,
+        back_to_calendar: '← Zurück zum Kalender',
+        appointments_title: 'Termine',
+        view_route: 'Route anzeigen',
+        add_appointment: '+ Termin hinzufügen',
+        no_apts_day: 'Keine Termine für diesen Tag.',
+        apt_tooltip: (n) => `${n} Termin${n !== 1 ? 'e' : ''}`,
+
+        // Routes
+        route_title: 'Routenplaner',
+        route_sub: 'Optimiere deine Besuchsreihenfolge für weniger Fahrzeit',
+        starting_point: 'Startpunkt',
+        no_home: 'Nicht gesetzt — Route startet beim ersten Termin',
+        home_placeholder: 'z. B. Musterstr. 1, 10115 Berlin',
+        set_btn: 'Setzen',
+        clear_btn: 'Löschen',
+        geocoding: 'Adresse wird gesucht…',
+        geocode_fail: 'Adresse nicht gefunden — bitte genauer angeben.',
+        home_saved: 'Startpunkt gespeichert',
+        enter_address: 'Bitte zuerst eine Adresse eingeben',
+        optimize_btn: 'Route optimieren',
+        optimizing: 'Optimiere…',
+        route_optimized: (mins) => `Route optimiert — ${mins} Min. Fahrzeit gesamt`,
+        select_date_hint: 'Datum wählen und Route optimieren klicken',
+        no_apts_route: 'Keine Termine für dieses Datum.',
+        go_to_calendar: 'Zum Kalender',
+        stop_starting: 'Startpunkt',
+        to_first_stop: (mins, km) => `↓ ${mins} Min · ${km} km zum ersten Halt`,
+        optimized_route: 'Optimierte Route',
+        apts_label: 'Termine',
+        total_travel: (mins) => `~${mins} Min gesamt`,
+        no_location_warn_route: (n) => `⚠️ ${n} Patient${n !== 1 ? 'innen' : 'in'} ohne Kartenstandort — am Ende`,
+        no_apts_empty: 'Keine Termine für dieses Datum.',
+        return_home: 'Zurück zum Startpunkt',
+        travel_leg: (mins, km) => `↓ ${mins} Min · ${km} km`,
+
+        // Mothers
+        mothers_title: 'Mütter',
+        mothers_sub: (n) => `${n} aktive${n !== 1 ? ' Patientinnen' : ' Patientin'}`,
+        col_name: 'Name',
+        col_status: 'Status',
+        col_ga: 'SSW',
+        col_due: 'ET',
+        col_phone: 'Telefon',
+        col_actions: 'Aktionen',
+        no_location_warn: '⚠ Kein Kartenstandort',
+        status_active: 'Schwanger',
+        status_postpartum: 'Wochenbett',
+        status_discharged: 'Entlassen',
+        no_patients: 'Noch keine Patientinnen.',
+        add_first_mother: '+ Erste Mutter hinzufügen',
+        edit_btn: 'Bearbeiten',
+        discharge_btn: 'Entlassen',
+        discharge_confirm: (name) => `${name} entlassen? Sie wird aus der aktiven Liste entfernt.`,
+        discharged_toast: (name) => `${name} entlassen`,
+
+        // Visit types
+        type_prenatal: 'Vorsorge',
+        type_birth: 'Geburt',
+        type_postnatal: 'Nachsorge',
+
+        // GA label
+        ga_label: (w, d) => `${w}W ${d}T`,
+
+        // Patient modal
+        edit_mother: 'Mutter bearbeiten',
+        add_mother_modal: 'Mutter hinzufügen',
+        label_fullname: 'Vollständiger Name *',
+        label_address: 'Adresse *',
+        label_address_hint: '(für Karte & Route)',
+        placeholder_name: 'z. B. Maria Schmidt',
+        placeholder_address: 'z. B. Musterstr. 1, 10115 Berlin',
+        label_phone: 'Telefon',
+        label_status: 'Status',
+        label_ga_weeks: 'SSW',
+        label_ga_days: 'SS-Tage',
+        label_due_date: 'Entbindungstermin',
+        label_notes: 'Notizen',
+        cancel_btn: 'Abbrechen',
+        save_changes: 'Änderungen speichern',
+        add_mother_btn: 'Mutter hinzufügen',
+        saving: 'Speichere…',
+        adding: 'Hinzufügen…',
+        geocoding_address: 'Adresse wird gesucht…',
+        changes_saved: 'Änderungen gespeichert',
+        mother_added: 'Mutter hinzugefügt',
+        name_address_required: 'Name und Adresse sind erforderlich',
+        select_patient_opt: 'active',
+        opt_pregnant: 'Schwanger',
+        opt_postpartum: 'Wochenbett',
+
+        // Appointment modal
+        edit_apt: 'Termin bearbeiten',
+        new_apt: 'Neuer Termin',
+        label_patient: 'Patientin *',
+        label_date: 'Datum *',
+        label_time: 'Uhrzeit *',
+        label_visit_type: 'Besuchsart *',
+        select_patient: '— Patientin wählen —',
+        cancel_apt_btn: 'Termin absagen',
+        close_btn: 'Schließen',
+        schedule_btn: 'Planen',
+        cancel_apt_confirm: 'Diesen Termin absagen?',
+        apt_cancelled: 'Termin abgesagt',
+        apt_updated: 'Termin aktualisiert',
+        apt_scheduled: 'Termin geplant',
+        patient_date_time_required: 'Patientin, Datum und Uhrzeit sind erforderlich',
+        saving_apt: 'Speichere…',
+
+        // Confirm dialog
+        confirm_cancel: 'Abbrechen',
+        confirm_ok: 'Bestätigen',
+
+        // Misc
+        loading: 'Juno wird geladen…',
+        loading_spinner: 'Wird geladen…',
+        error_prefix: 'Fehler',
+
+        // Banner
+        banner: '⚠️ Prototyp — Bitte keine sensiblen oder echten Patientendaten eingeben.',
+        lang_toggle: 'EN',
+        locale: 'de-DE',
+    },
+
+    en: {
+        // Nav
+        nav_dashboard: 'Dashboard',
+        nav_calendar: 'Calendar',
+        nav_routes: 'Routes',
+        nav_mothers: 'Mothers',
+        nav_settings: 'Settings',
+
+        // Dashboard
+        welcome: 'Welcome back, Clara',
+        visits_today: (n) => `${n} visit${n !== 1 ? 's' : ''} today`,
+        active_births: 'Active Births',
+        visits_today_label: 'Visits Today',
+        ga_alerts_label: 'GA Alerts (≥40w)',
+        daily_pulse: 'Your Daily Pulse',
+        daily_pulse_sub: 'All routines optimized for minimum travel time.',
+        this_week: 'This Week',
+        quick_actions: 'Quick Actions',
+        plan_route: '🗺 Plan today\'s route',
+        ga_alert_item: (name, ga) => `⚠️ GA alert: ${name} (${ga})`,
+        no_ga_alerts: '✓ No GA alerts today',
+        view_mothers: (n) => `👩 View all mothers (${n})`,
+        add_mother: '+ Add Mother',
+        new_appointment: '+ New Appointment',
+
+        // Calendar
+        calendar_title: 'Calendar',
+        calendar_sub: 'Click a day to view or schedule appointments',
+        cal_prev: '‹ Prev',
+        cal_next: 'Next ›',
+        weekdays_short: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        apt_count: (n) => `${n} appointment${n !== 1 ? 's' : ''} scheduled`,
+        back_to_calendar: '← Back to Calendar',
+        appointments_title: 'Appointments',
+        view_route: 'View Route',
+        add_appointment: '+ Add Appointment',
+        no_apts_day: 'No appointments scheduled for this day.',
+        apt_tooltip: (n) => `${n} appointment${n !== 1 ? 's' : ''}`,
+
+        // Routes
+        route_title: 'Route Planner',
+        route_sub: 'Optimize your visit order to save travel time',
+        starting_point: 'Starting Point',
+        no_home: 'Not set — route starts from first appointment',
+        home_placeholder: 'e.g. Musterstr. 1, 10115 Berlin',
+        set_btn: 'Set',
+        clear_btn: 'Clear',
+        geocoding: 'Geocoding…',
+        geocode_fail: 'Could not find that address — try a more specific address.',
+        home_saved: 'Starting point saved',
+        enter_address: 'Enter an address first',
+        optimize_btn: 'Optimize Route',
+        optimizing: 'Optimizing…',
+        route_optimized: (mins) => `Route optimized — ${mins} min total travel`,
+        select_date_hint: 'Select a date and click Optimize Route',
+        no_apts_route: 'No appointments scheduled for this date.',
+        go_to_calendar: 'Go to Calendar',
+        stop_starting: 'Starting Point',
+        to_first_stop: (mins, km) => `↓ ${mins} min · ${km} km to first stop`,
+        optimized_route: 'Optimized Route',
+        apts_label: 'Appointments',
+        total_travel: (mins) => `~${mins} min total`,
+        no_location_warn_route: (n) => `⚠️ ${n} patient${n !== 1 ? 's' : ''} without map location — shown at end`,
+        no_apts_empty: 'No appointments for this date.',
+        return_home: 'Return Home',
+        travel_leg: (mins, km) => `↓ ${mins} min · ${km} km`,
+
+        // Mothers
+        mothers_title: 'Mothers',
+        mothers_sub: (n) => `${n} active patient${n !== 1 ? 's' : ''}`,
+        col_name: 'Name',
+        col_status: 'Status',
+        col_ga: 'GA',
+        col_due: 'Due Date',
+        col_phone: 'Phone',
+        col_actions: 'Actions',
+        no_location_warn: '⚠ No map location',
+        status_active: 'Pregnant',
+        status_postpartum: 'Postpartum',
+        status_discharged: 'Discharged',
+        no_patients: 'No patients yet.',
+        add_first_mother: '+ Add Your First Mother',
+        edit_btn: 'Edit',
+        discharge_btn: 'Discharge',
+        discharge_confirm: (name) => `Discharge ${name}? This will remove them from your active list.`,
+        discharged_toast: (name) => `${name} discharged`,
+
+        // Visit types
+        type_prenatal: 'Prenatal',
+        type_birth: 'Birth',
+        type_postnatal: 'Postnatal',
+
+        // GA label
+        ga_label: (w, d) => `${w}w ${d}d`,
+
+        // Patient modal
+        edit_mother: 'Edit Mother',
+        add_mother_modal: 'Add Mother',
+        label_fullname: 'Full Name *',
+        label_address: 'Address *',
+        label_address_hint: '(used for map & route)',
+        placeholder_name: 'e.g. Maria Schmidt',
+        placeholder_address: 'e.g. Musterstr. 1, 10115 Berlin',
+        label_phone: 'Phone',
+        label_status: 'Status',
+        label_ga_weeks: 'GA Weeks',
+        label_ga_days: 'GA Days',
+        label_due_date: 'Due Date',
+        label_notes: 'Notes',
+        cancel_btn: 'Cancel',
+        save_changes: 'Save Changes',
+        add_mother_btn: 'Add Mother',
+        saving: 'Saving…',
+        adding: 'Adding…',
+        geocoding_address: 'Geocoding address…',
+        changes_saved: 'Changes saved',
+        mother_added: 'Mother added',
+        name_address_required: 'Name and address are required',
+        opt_pregnant: 'Pregnant',
+        opt_postpartum: 'Postpartum',
+
+        // Appointment modal
+        edit_apt: 'Edit Appointment',
+        new_apt: 'New Appointment',
+        label_patient: 'Patient *',
+        label_date: 'Date *',
+        label_time: 'Time *',
+        label_visit_type: 'Visit Type *',
+        select_patient: '— Select a patient —',
+        cancel_apt_btn: 'Cancel Appointment',
+        close_btn: 'Close',
+        schedule_btn: 'Schedule',
+        cancel_apt_confirm: 'Cancel this appointment?',
+        apt_cancelled: 'Appointment cancelled',
+        apt_updated: 'Appointment updated',
+        apt_scheduled: 'Appointment scheduled',
+        patient_date_time_required: 'Patient, date, and time are required',
+        saving_apt: 'Saving…',
+
+        // Confirm dialog
+        confirm_cancel: 'Cancel',
+        confirm_ok: 'Confirm',
+
+        // Misc
+        loading: 'Loading Juno…',
+        loading_spinner: 'Loading…',
+        error_prefix: 'Error',
+
+        // Banner
+        banner: '⚠️ Prototype — Do not enter sensitive or real patient data.',
+        lang_toggle: 'DE',
+        locale: 'en-GB',
+    },
+};
+
+// =============================================================================
 // STATE
 // =============================================================================
 const state = {
@@ -20,7 +334,18 @@ const state = {
     routeDate: null,
     leafletMap: null,
     homeLocation: JSON.parse(localStorage.getItem('juno_home') || 'null'),
+    lang: localStorage.getItem('juno_lang') || 'de',
 };
+
+// =============================================================================
+// t() — translation helper
+// =============================================================================
+function t(key, ...args) {
+    const val = LANG[state.lang][key];
+    if (val === undefined) return key;
+    if (typeof val === 'function') return val(...args);
+    return val;
+}
 
 // =============================================================================
 // API
@@ -82,16 +407,19 @@ const utils = {
     },
 
     formatDate(iso) {
+        const locale = t('locale');
         const d = new Date(iso + 'T12:00:00');
-        return d.toLocaleDateString('en-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        return d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     },
 
     formatMonthYear(d) {
-        return d.toLocaleDateString('en-DE', { month: 'long', year: 'numeric' });
+        const locale = t('locale');
+        return d.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
     },
 
     formatTime(hhmm) {
         if (!hhmm) return '';
+        if (state.lang === 'de') return hhmm; // German uses 24h
         const [h, m] = hhmm.split(':');
         const hour = parseInt(h);
         const ampm = hour >= 12 ? 'PM' : 'AM';
@@ -100,7 +428,18 @@ const utils = {
     },
 
     gaLabel(weeks, days) {
-        return `${weeks}w ${days}d`;
+        return t('ga_label', weeks, days);
+    },
+
+    visitTypeLabel(type) {
+        const map = { prenatal: t('type_prenatal'), birth: t('type_birth'), postnatal: t('type_postnatal') };
+        return map[type] || type;
+    },
+
+    statusLabel(status) {
+        if (status === 'active') return t('status_active');
+        if (status === 'postpartum') return t('status_postpartum');
+        return t('status_discharged');
     },
 
     isGAAlert(weeks) {
@@ -118,13 +457,30 @@ const utils = {
     },
 
     visitBadge(type) {
-        return `<span class="visit-badge ${type}">${type}</span>`;
+        return `<span class="visit-badge ${type}">${utils.visitTypeLabel(type)}</span>`;
     },
 
     escapeHtml(str) {
         const d = document.createElement('div');
         d.appendChild(document.createTextNode(str || ''));
         return d.innerHTML;
+    },
+
+    async fetchOSRMGeometry(waypoints) {
+        if (!waypoints || waypoints.length < 2) return null;
+        try {
+            const coords = waypoints.map(w => `${w.lon},${w.lat}`).join(';');
+            const res = await fetch(
+                `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=false`,
+                { headers: { 'User-Agent': 'Juno-Midwife-App/1.0' } }
+            );
+            const data = await res.json();
+            if (data.code !== 'Ok' || !data.routes?.length) return null;
+            return data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+        } catch (e) {
+            console.warn('[osrm] frontend geometry fetch failed:', e);
+            return null;
+        }
     },
 
     haversine(lat1, lon1, lat2, lon2) {
@@ -148,8 +504,8 @@ const utils = {
                 <div class="modal-box" style="width:380px;max-width:95vw;">
                     <p style="margin-bottom:1.5rem;line-height:1.5;">${utils.escapeHtml(message)}</p>
                     <div class="form-actions" style="margin-top:0;padding-top:0;border-top:none;">
-                        <button class="btn-secondary" id="confirm-no">Cancel</button>
-                        <button class="btn-danger" id="confirm-yes">Confirm</button>
+                        <button class="btn-secondary" id="confirm-no">${t('confirm_cancel')}</button>
+                        <button class="btn-danger" id="confirm-yes">${t('confirm_ok')}</button>
                     </div>
                 </div>
             `;
@@ -180,9 +536,20 @@ const mapManager = {
         }).addTo(this._map);
     },
 
-    addPin(lat, lon, popupHtml) {
+    addPin(lat, lon, popupHtml, number = null) {
         if (!this._map) return;
-        const marker = L.marker([lat, lon]).bindPopup(popupHtml).addTo(this._map);
+        let marker;
+        if (number != null) {
+            const icon = L.divIcon({
+                className: '',
+                html: `<div style="background:${CONFIG.ROUTE_COLOR};color:#fff;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.3);border:2px solid #fff;">${number}</div>`,
+                iconSize: [30, 30],
+                iconAnchor: [15, 15],
+            });
+            marker = L.marker([lat, lon], { icon }).bindPopup(popupHtml).addTo(this._map);
+        } else {
+            marker = L.marker([lat, lon]).bindPopup(popupHtml).addTo(this._map);
+        }
         this._markers.push(marker);
         return marker;
     },
@@ -195,7 +562,7 @@ const mapManager = {
             iconSize: [34, 34],
             iconAnchor: [17, 17],
         });
-        const marker = L.marker([lat, lon], { icon }).bindPopup(`<strong>Starting Point</strong><br>${address || ''}`).addTo(this._map);
+        const marker = L.marker([lat, lon], { icon }).bindPopup(`<strong>${t('stop_starting')}</strong><br>${address || ''}`).addTo(this._map);
         this._markers.push(marker);
         return marker;
     },
@@ -203,10 +570,9 @@ const mapManager = {
     drawRoute(orderedApts, startLocation = null, roadGeometry = null) {
         if (!this._map) return;
 
-        // Use real road geometry from OSRM if available, otherwise fall back to straight lines
         let coords;
         if (roadGeometry && roadGeometry.length >= 2) {
-            coords = roadGeometry; // already [lat, lon] pairs
+            coords = roadGeometry;
         } else {
             const aptCoords = orderedApts
                 .filter(a => a.lat != null && a.lon != null)
@@ -227,7 +593,6 @@ const mapManager = {
             opacity: 0.9,
         }).addTo(this._map);
 
-        // Fit bounds to all visible points
         const bounds = L.latLngBounds(coords);
         this._map.fitBounds(bounds, { padding: [40, 40] });
     },
@@ -253,21 +618,18 @@ const mapManager = {
 // =============================================================================
 const router = {
     navigateTo(view, params = {}) {
-        // Destroy map when leaving routes view
         if (state.currentView === 'routes') {
             mapManager.destroy();
         }
 
         state.currentView = view;
 
-        // Update nav active state
         document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.toggle('active', item.id === `nav-${view}`);
         });
 
-        // Render view
         const appView = document.getElementById('app-view');
-        appView.innerHTML = '<div class="loading-spinner">Loading…</div>';
+        appView.innerHTML = `<div class="loading-spinner">${t('loading_spinner')}</div>`;
 
         const viewMap = {
             dashboard: () => views.dashboard.render(params),
@@ -278,7 +640,7 @@ const router = {
 
         if (viewMap[view]) {
             viewMap[view]().catch(err => {
-                appView.innerHTML = `<div class="loading-spinner" style="color:var(--pending)">Error: ${utils.escapeHtml(err.message)}</div>`;
+                appView.innerHTML = `<div class="loading-spinner" style="color:var(--pending)">${t('error_prefix')}: ${utils.escapeHtml(err.message)}</div>`;
                 console.error(err);
             });
         }
@@ -289,11 +651,31 @@ const router = {
             item.addEventListener('click', e => {
                 e.preventDefault();
                 const view = item.id.replace('nav-', '');
-                router.navigateTo(view);
+                if (['dashboard', 'calendar', 'routes', 'mothers'].includes(view)) {
+                    router.navigateTo(view);
+                }
             });
         });
     },
 };
+
+// =============================================================================
+// NAV + BANNER update helpers
+// =============================================================================
+function updateNav() {
+    const navKeys = ['dashboard', 'calendar', 'routes', 'mothers', 'settings'];
+    navKeys.forEach(key => {
+        const el = document.getElementById(`nav-${key}`);
+        if (el) el.textContent = t(`nav_${key}`);
+    });
+}
+
+function updateBanner() {
+    const text = document.getElementById('banner-text');
+    const btn  = document.getElementById('lang-toggle');
+    if (text) text.textContent = t('banner');
+    if (btn)  btn.textContent  = t('lang_toggle');
+}
 
 // =============================================================================
 // VIEWS
@@ -314,60 +696,59 @@ const views = {
             const scheduled     = apts.length;
             const gaAlerts      = patients.filter(p => utils.isGAAlert(p.gestational_age_weeks));
 
-            // Fetch week data for mini-calendar
             const month = utils.monthKey(new Date());
             const monthData = await api.appointments.byMonth(month);
             const countByDay = {};
             monthData.forEach(r => { countByDay[r.date] = r.count; });
 
-            // Build week strip (today ± 3 days)
             const today = utils.today();
+            const locale = t('locale');
             const weekDays = [];
             for (let i = -3; i <= 3; i++) {
                 const d = new Date(today + 'T12:00:00');
                 d.setDate(d.getDate() + i);
                 const iso = d.toISOString().slice(0, 10);
-                weekDays.push({ iso, label: d.toLocaleDateString('en-DE', { weekday: 'short' }), day: d.getDate(), count: countByDay[iso] || 0 });
+                weekDays.push({ iso, label: d.toLocaleDateString(locale, { weekday: 'short' }), day: d.getDate(), count: countByDay[iso] || 0 });
             }
 
             const appView = document.getElementById('app-view');
             appView.innerHTML = `
                 <header class="header">
                     <div>
-                        <h1 style="color:var(--text-dark);margin-bottom:4px;">Welcome back, Clara</h1>
-                        <p style="color:var(--text-muted);">${new Date().toLocaleDateString('en-DE', { weekday: 'long', day: 'numeric', month: 'long' })} · ${scheduled} visit${scheduled !== 1 ? 's' : ''} today</p>
+                        <h1 style="color:var(--text-dark);margin-bottom:4px;">${t('welcome')}</h1>
+                        <p style="color:var(--text-muted);">${new Date().toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })} · ${t('visits_today', scheduled)}</p>
                     </div>
                     <div style="display:flex;gap:0.75rem;">
-                        <button class="btn-secondary" id="dash-add-mother">+ Add Mother</button>
-                        <button class="btn-primary" id="dash-new-apt">+ New Appointment</button>
+                        <button class="btn-secondary" id="dash-add-mother">${t('add_mother')}</button>
+                        <button class="btn-primary" id="dash-new-apt">${t('new_appointment')}</button>
                     </div>
                 </header>
 
                 <div class="dashboard-grid">
                     <div class="metric-container">
                         <div class="metric-card">
-                            <span>Active Births</span>
+                            <span>${t('active_births')}</span>
                             <strong>${activeBirths}</strong>
                         </div>
                         <div class="metric-card">
-                            <span>Visits Today</span>
+                            <span>${t('visits_today_label')}</span>
                             <strong>${String(scheduled).padStart(2,'0')}</strong>
                         </div>
                         <div class="metric-card ${gaAlerts.length > 0 ? 'ga-alert' : ''}">
-                            <span>GA Alerts (≥40w)</span>
+                            <span>${t('ga_alerts_label')}</span>
                             <strong>${gaAlerts.length}</strong>
                         </div>
                     </div>
 
                     <section class="card hero-card" style="grid-column:span 12;">
                         <div class="hero-content">
-                            <h2>Your Daily Pulse</h2>
-                            <p>All routines optimized for minimum travel time.</p>
+                            <h2>${t('daily_pulse')}</h2>
+                            <p>${t('daily_pulse_sub')}</p>
                         </div>
                     </section>
 
                     <section class="card" style="grid-column:span 7;">
-                        <h2>This Week</h2>
+                        <h2>${t('this_week')}</h2>
                         <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:1rem;">
                             ${weekDays.map(d => `
                                 <div class="day-cell ${d.iso === today ? 'today' : ''} ${d.count >= 4 ? 'apt-4' : d.count === 3 ? 'apt-3' : d.count === 2 ? 'apt-2' : d.count === 1 ? 'apt-1' : ''}"
@@ -382,20 +763,20 @@ const views = {
                     </section>
 
                     <section class="card" style="grid-column:span 5;">
-                        <h2>Quick Actions</h2>
+                        <h2>${t('quick_actions')}</h2>
                         <ul style="list-style:none;display:flex;flex-direction:column;gap:4px;margin-top:0.75rem;">
                             <li style="padding:10px 0;border-bottom:1px solid var(--grey-light);cursor:pointer;color:var(--text-dark);" id="qa-plan-route">
-                                🗺 Plan today's route
+                                ${t('plan_route')}
                             </li>
                             ${gaAlerts.length > 0 ? gaAlerts.map(p => `
                             <li style="padding:10px 0;border-bottom:1px solid var(--grey-light);" class="ga-alert">
-                                ⚠️ GA alert: ${utils.escapeHtml(p.name)} (${utils.gaLabel(p.gestational_age_weeks, p.gestational_age_days)})
+                                ${t('ga_alert_item', utils.escapeHtml(p.name), utils.gaLabel(p.gestational_age_weeks, p.gestational_age_days))}
                             </li>`).join('') : `
                             <li style="padding:10px 0;border-bottom:1px solid var(--grey-light);color:var(--text-muted);">
-                                ✓ No GA alerts today
+                                ${t('no_ga_alerts')}
                             </li>`}
                             <li style="padding:10px 0;cursor:pointer;color:var(--text-dark);" id="qa-view-mothers">
-                                👩 View all mothers (${patients.length})
+                                ${t('view_mothers', patients.length)}
                             </li>
                         </ul>
                     </section>
@@ -417,12 +798,10 @@ const views = {
     // -------------------------------------------------------------------------
     calendar: {
         async render(params = {}) {
-            // If a specific date is passed, go to day detail directly
             if (params.date) {
                 return views.calendar.renderDayDetail(params.date);
             }
 
-            // Month view
             if (params.month) {
                 state.calendarMonth = new Date(params.month + '-01T12:00:00');
             }
@@ -436,7 +815,6 @@ const views = {
             const firstDay = new Date(state.calendarMonth.getFullYear(), state.calendarMonth.getMonth(), 1);
             const daysInMonth = new Date(state.calendarMonth.getFullYear(), state.calendarMonth.getMonth() + 1, 0).getDate();
 
-            // Monday-based offset (0=Mon, 6=Sun)
             let startOffset = firstDay.getDay() - 1;
             if (startOffset < 0) startOffset = 6;
 
@@ -444,21 +822,21 @@ const views = {
             appView.innerHTML = `
                 <header class="header">
                     <div>
-                        <h1 style="color:var(--text-dark);">Calendar</h1>
-                        <p style="color:var(--text-muted);">Click a day to view or schedule appointments</p>
+                        <h1 style="color:var(--text-dark);">${t('calendar_title')}</h1>
+                        <p style="color:var(--text-muted);">${t('calendar_sub')}</p>
                     </div>
-                    <button class="btn-primary" id="cal-new-apt">+ New Appointment</button>
+                    <button class="btn-primary" id="cal-new-apt">${t('new_appointment')}</button>
                 </header>
 
                 <div class="card">
                     <div class="calendar-nav">
-                        <button id="cal-prev">‹ Prev</button>
+                        <button id="cal-prev">${t('cal_prev')}</button>
                         <h2 style="margin:0;">${utils.formatMonthYear(state.calendarMonth)}</h2>
-                        <button id="cal-next">Next ›</button>
+                        <button id="cal-next">${t('cal_next')}</button>
                     </div>
 
                     <div class="calendar-weekdays">
-                        ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => `<div class="weekday-label">${d}</div>`).join('')}
+                        ${t('weekdays_short').map(d => `<div class="weekday-label">${d}</div>`).join('')}
                     </div>
 
                     <div class="month-grid">
@@ -474,7 +852,7 @@ const views = {
                                 count >= 4 ? 'apt-4' : count === 3 ? 'apt-3' : count === 2 ? 'apt-2' : count === 1 ? 'apt-1' : '',
                                 iso === today ? 'today' : '',
                             ].filter(Boolean).join(' ');
-                            return `<div class="day-cell ${cls}" data-date="${iso}" title="${count} appointment${count !== 1 ? 's' : ''}" style="position:relative;">
+                            return `<div class="day-cell ${cls}" data-date="${iso}" title="${t('apt_tooltip', count)}" style="position:relative;">
                                 ${count > 0 ? `<span style="position:absolute;top:3px;right:5px;font-size:0.6rem;opacity:0.85;line-height:1;">${count}</span>` : ''}
                                 ${day}
                             </div>`;
@@ -504,24 +882,24 @@ const views = {
             appView.innerHTML = `
                 <header class="header">
                     <div>
-                        <button class="day-detail-back" id="back-to-month">← Back to Calendar</button>
+                        <button class="day-detail-back" id="back-to-month">${t('back_to_calendar')}</button>
                         <h1 style="color:var(--text-dark);">${utils.formatDate(isoDate)}</h1>
-                        <p style="color:var(--text-muted);">${apts.length} appointment${apts.length !== 1 ? 's' : ''} scheduled</p>
+                        <p style="color:var(--text-muted);">${t('apt_count', apts.length)}</p>
                     </div>
                     <div style="display:flex;gap:0.75rem;">
-                        <button class="btn-secondary" id="btn-view-route">View Route</button>
-                        <button class="btn-primary" id="btn-add-apt">+ Add Appointment</button>
+                        <button class="btn-secondary" id="btn-view-route">${t('view_route')}</button>
+                        <button class="btn-primary" id="btn-add-apt">${t('add_appointment')}</button>
                     </div>
                 </header>
 
                 <div style="display:grid;grid-template-columns:1fr;gap:1.5rem;max-width:720px;">
                     <section class="card">
-                        <h2>Appointments</h2>
+                        <h2>${t('appointments_title')}</h2>
                         <div id="apt-list" style="margin-top:1rem;">
                             ${apts.length === 0 ? `
                                 <div class="empty-state">
-                                    <p>No appointments scheduled for this day.</p>
-                                    <button class="btn-primary" id="empty-add-apt">+ Add Appointment</button>
+                                    <p>${t('no_apts_day')}</p>
+                                    <button class="btn-primary" id="empty-add-apt">${t('add_appointment')}</button>
                                 </div>
                             ` : apts.map(a => `
                                 <div class="time-slot">
@@ -546,7 +924,6 @@ const views = {
             document.getElementById('btn-view-route').addEventListener('click', () => router.navigateTo('routes', { date: isoDate }));
             document.getElementById('empty-add-apt')?.addEventListener('click', () => modals.appointment(isoDate, null, () => views.calendar.renderDayDetail(isoDate)));
 
-            // Click apt card to edit
             document.querySelectorAll('.apt-card[data-id]').forEach(card => {
                 const apt = apts.find(a => a.id === card.dataset.id);
                 card.addEventListener('click', () => modals.appointment(isoDate, apt, () => views.calendar.renderDayDetail(isoDate)));
@@ -566,31 +943,31 @@ const views = {
             appView.innerHTML = `
                 <header class="header">
                     <div>
-                        <h1 style="color:var(--text-dark);">Route Planner</h1>
-                        <p style="color:var(--text-muted);">Optimize your visit order to save travel time</p>
+                        <h1 style="color:var(--text-dark);">${t('route_title')}</h1>
+                        <p style="color:var(--text-muted);">${t('route_sub')}</p>
                     </div>
                 </header>
 
                 <div class="card" style="padding:1.25rem 1.5rem;margin-bottom:1.5rem;">
                     <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
                         <span style="font-size:1.1rem;">🏠</span>
-                        <strong style="font-size:0.9rem;color:var(--text-dark);">Starting Point</strong>
-                        ${state.homeLocation ? `<span style="font-size:0.8rem;color:var(--text-muted);margin-left:0.25rem;">${utils.escapeHtml(state.homeLocation.address)}</span>` : `<span style="font-size:0.8rem;color:var(--text-muted);margin-left:0.25rem;">Not set — route starts from first appointment</span>`}
+                        <strong style="font-size:0.9rem;color:var(--text-dark);">${t('starting_point')}</strong>
+                        ${state.homeLocation ? `<span style="font-size:0.8rem;color:var(--text-muted);margin-left:0.25rem;">${utils.escapeHtml(state.homeLocation.address)}</span>` : `<span style="font-size:0.8rem;color:var(--text-muted);margin-left:0.25rem;">${t('no_home')}</span>`}
                     </div>
                     <div style="display:flex;gap:0.5rem;align-items:center;">
-                        <input type="text" id="home-address-input" class="input-field" style="flex:1;" placeholder="e.g. Musterstr. 1, 10115 Berlin" value="${state.homeLocation ? utils.escapeHtml(state.homeLocation.address) : ''}">
-                        <button class="btn-secondary" id="btn-set-home">Set</button>
-                        ${state.homeLocation ? `<button class="btn-secondary" id="btn-clear-home" style="color:var(--pending);">Clear</button>` : ''}
+                        <input type="text" id="home-address-input" class="input-field" style="flex:1;" placeholder="${t('home_placeholder')}" value="${state.homeLocation ? utils.escapeHtml(state.homeLocation.address) : ''}">
+                        <button class="btn-secondary" id="btn-set-home">${t('set_btn')}</button>
+                        ${state.homeLocation ? `<button class="btn-secondary" id="btn-clear-home" style="color:var(--pending);">${t('clear_btn')}</button>` : ''}
                     </div>
                     <div id="home-status" style="font-size:0.78rem;color:var(--text-muted);margin-top:0.4rem;min-height:1rem;"></div>
                 </div>
 
                 <div class="route-controls" style="margin-bottom:1.5rem;">
                     <input type="date" id="route-date-picker" value="${date}" class="input-field" style="width:180px;">
-                    <button class="btn-primary" id="btn-optimize">Optimize Route</button>
+                    <button class="btn-primary" id="btn-optimize">${t('optimize_btn')}</button>
                 </div>
 
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start;">
+                <div id="route-layout">
                     <div>
                         <div class="card" style="padding:0;overflow:hidden;">
                             <div id="map"></div>
@@ -598,61 +975,77 @@ const views = {
                     </div>
                     <div>
                         <div class="card" id="route-list-card">
-                            <div class="loading-spinner">Select a date and click Optimize Route</div>
+                            <div class="loading-spinner">${t('select_date_hint')}</div>
                         </div>
                     </div>
                 </div>
             `;
 
-            // Initialize map
             mapManager.init('map');
 
-            // Try to load any previously saved route
+            const expandCtrl = L.control({ position: 'bottomleft' });
+            expandCtrl.onAdd = function() {
+                const btn = L.DomUtil.create('button', 'map-expand-btn');
+                btn.innerHTML = '⛶';
+                btn.title = 'Expand map';
+                L.DomEvent.disableClickPropagation(btn);
+                L.DomEvent.on(btn, 'click', () => {
+                    const layout = document.getElementById('route-layout');
+                    const expanded = layout.classList.toggle('map-expanded');
+                    btn.innerHTML = expanded ? '⊡' : '⛶';
+                    btn.title = expanded ? 'Collapse map' : 'Expand map';
+                    setTimeout(() => mapManager._map?.invalidateSize(), 260);
+                });
+                return btn;
+            };
+            expandCtrl.addTo(mapManager._map);
+
             try {
                 const saved = await api.routes.get(date);
-                // If there's a saved route, fetch appointments and render
                 const apts = await api.appointments.byDate(date);
                 if (apts.length > 0) {
-                    // Reconstruct ordered list from saved IDs
                     const aptById = {};
                     apts.forEach(a => { aptById[a.id] = a; });
                     const ordered = (saved.ordered_appointment_ids || [])
                         .map(id => aptById[id])
                         .filter(Boolean);
-                    views.routeView._renderRouteResult(ordered, [], saved.estimated_travel_minutes, false, state.homeLocation);
+                    const home = state.homeLocation;
+                    const osrmWaypoints = [];
+                    if (home?.lat != null) osrmWaypoints.push(home);
+                    ordered.filter(a => a.lat != null).forEach(a => osrmWaypoints.push({ lat: a.lat, lon: a.lon }));
+                    if (home?.lat != null) osrmWaypoints.push(home);
+                    const savedGeo = await utils.fetchOSRMGeometry(osrmWaypoints);
+                    views.routeView._renderRouteResult(ordered, [], saved.estimated_travel_minutes, false, home, false, savedGeo);
                 }
             } catch (_) {
-                // No saved route — just show the map empty
                 const apts = await api.appointments.byDate(date);
                 if (apts.length > 0) {
                     views.routeView._renderRouteResult(apts, [], 0, true);
                 } else {
                     document.getElementById('route-list-card').innerHTML = `
                         <div class="empty-state">
-                            <p>No appointments scheduled for this date.</p>
-                            <button class="btn-secondary" id="go-calendar-btn">Go to Calendar</button>
+                            <p>${t('no_apts_route')}</p>
+                            <button class="btn-secondary" id="go-calendar-btn">${t('go_to_calendar')}</button>
                         </div>`;
                     document.getElementById('go-calendar-btn')?.addEventListener('click', () => router.navigateTo('calendar'));
                 }
             }
 
-            // Home address set/clear handlers
             document.getElementById('btn-set-home').addEventListener('click', async () => {
                 const address = document.getElementById('home-address-input').value.trim();
-                if (!address) { utils.showToast('Enter an address first', 'error'); return; }
+                if (!address) { utils.showToast(t('enter_address'), 'error'); return; }
                 const statusEl = document.getElementById('home-status');
                 const btn = document.getElementById('btn-set-home');
                 btn.disabled = true;
-                statusEl.textContent = 'Geocoding…';
+                statusEl.textContent = t('geocoding');
                 try {
                     const result = await api.geocode(address);
                     state.homeLocation = { lat: result.lat, lon: result.lon, address: result.address };
                     localStorage.setItem('juno_home', JSON.stringify(state.homeLocation));
-                    utils.showToast('Starting point saved');
-                    // Re-render to reflect the saved home
+                    utils.showToast(t('home_saved'));
                     views.routeView.render({ date: state.routeDate });
                 } catch (err) {
-                    statusEl.textContent = 'Could not find that address — try a more specific address.';
+                    statusEl.textContent = t('geocode_fail');
                     btn.disabled = false;
                 }
             });
@@ -670,7 +1063,7 @@ const views = {
 
             document.getElementById('btn-optimize').addEventListener('click', async () => {
                 const btn = document.getElementById('btn-optimize');
-                btn.textContent = 'Optimizing…';
+                btn.textContent = t('optimizing');
                 btn.disabled = true;
                 try {
                     const home = state.homeLocation;
@@ -682,12 +1075,12 @@ const views = {
                     );
                     mapManager.clearPins();
                     views.routeView._renderRouteResult(result.ordered_appointments, result.legs, result.total_travel_minutes, false, result.start_location, true, result.road_geometry || null);
-                    utils.showToast(`Route optimized — ${result.total_travel_minutes} min total travel`);
+                    utils.showToast(t('route_optimized', result.total_travel_minutes));
                 } catch (err) {
                     utils.showToast(err.message, 'error');
                 } finally {
                     const b = document.getElementById('btn-optimize');
-                    if (b) { b.textContent = 'Optimize Route'; b.disabled = false; }
+                    if (b) { b.textContent = t('optimize_btn'); b.disabled = false; }
                 }
             });
 
@@ -726,11 +1119,9 @@ const views = {
         },
 
         _renderRouteResult(orderedApts, legs, totalMinutes, unoptimized = false, startLocation = null, animate = false, roadGeometry = null) {
-            // Store live state for drag reorder
             this._currentApts = orderedApts;
             this._currentStartLocation = startLocation;
 
-            // Map: pins + route line
             mapManager.clearPins();
             if (startLocation && startLocation.lat != null) {
                 mapManager.addHomePin(startLocation.lat, startLocation.lon, startLocation.address);
@@ -739,13 +1130,13 @@ const views = {
                 if (apt.lat != null && apt.lon != null) {
                     mapManager.addPin(apt.lat, apt.lon, `
                         <strong>${i + 1}. ${utils.escapeHtml(apt.patient_name)}</strong><br>
-                        ${utils.formatTime(apt.time)} · ${apt.visit_type}
-                    `);
+                        ${utils.formatTime(apt.time)} · ${utils.visitTypeLabel(apt.visit_type)}
+                    `, i + 1);
                 }
             });
+
             if (!unoptimized) mapManager.drawRoute(orderedApts, startLocation, roadGeometry);
 
-            // Separate home→first, apt-to-apt, and last→home legs
             let homeLeg = null;
             let returnLeg = null;
             let aptLegs = legs || [];
@@ -767,24 +1158,24 @@ const views = {
                 <div class="route-stop route-stop-home">
                     <div class="route-stop-number" style="background:var(--text-dark);font-size:1rem;">🏠</div>
                     <div style="flex:1;">
-                        <strong>Starting Point</strong>
+                        <strong>${t('stop_starting')}</strong>
                         <div style="font-size:0.82rem;color:var(--text-muted);margin-top:2px;">${utils.escapeHtml(startLocation.address || '')}</div>
-                        ${homeLeg ? `<div class="travel-segment" style="margin-left:0;margin-top:6px;">↓ ${homeLeg.minutes} min · ${homeLeg.distance_km} km to first stop</div>` : ''}
+                        ${homeLeg ? `<div class="travel-segment" style="margin-left:0;margin-top:6px;">${t('to_first_stop', homeLeg.minutes, homeLeg.distance_km)}</div>` : ''}
                     </div>
                 </div>` : '';
 
             listCard.innerHTML = `
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-                    <h2 style="margin:0;">${unoptimized ? 'Appointments' : 'Optimized Route'}</h2>
-                    <span id="route-total-time" style="font-size:0.85rem;color:var(--text-muted);">${!unoptimized && totalMinutes > 0 ? `~${totalMinutes} min total` : ''}</span>
+                    <h2 style="margin:0;">${unoptimized ? t('apts_label') : t('optimized_route')}</h2>
+                    <span id="route-total-time" style="font-size:0.85rem;color:var(--text-muted);">${!unoptimized && totalMinutes > 0 ? t('total_travel', totalMinutes) : ''}</span>
                 </div>
-                ${geocoded < orderedApts.length ? `<div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem;">⚠️ ${orderedApts.length - geocoded} patient${orderedApts.length - geocoded !== 1 ? 's' : ''} without map location — shown at end</div>` : ''}
-                ${orderedApts.length === 0 ? '<div class="empty-state"><p>No appointments for this date.</p></div>' : `
+                ${geocoded < orderedApts.length ? `<div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem;">${t('no_location_warn_route', orderedApts.length - geocoded)}</div>` : ''}
+                ${orderedApts.length === 0 ? `<div class="empty-state"><p>${t('no_apts_empty')}</p></div>` : `
                     <div id="route-stops-list">
                         ${homeSection}
                         ${orderedApts.map((apt, i) => {
                             const leg = aptLegs[i - 1];
-                            const travelDiv = leg ? `<div class="travel-segment">↓ ${leg.minutes} min · ${leg.distance_km} km</div>` : '';
+                            const travelDiv = leg ? `<div class="travel-segment">${t('travel_leg', leg.minutes, leg.distance_km)}</div>` : '';
                             const animStyle = animate ? `animation: slideInLeft 0.3s ease both; animation-delay: ${i * 60}ms;` : '';
                             return `${travelDiv}
                             <div class="route-stop" draggable="true" data-apt-idx="${i}" style="${animStyle}">
@@ -801,11 +1192,11 @@ const views = {
                             </div>`;
                         }).join('')}
                         ${startLocation && returnLeg ? `
-                            <div class="travel-segment">↓ ${returnLeg.minutes} min · ${returnLeg.distance_km} km</div>
+                            <div class="travel-segment">${t('travel_leg', returnLeg.minutes, returnLeg.distance_km)}</div>
                             <div class="route-stop route-stop-home">
                                 <div class="route-stop-number" style="background:var(--text-dark);font-size:1rem;">🏠</div>
                                 <div style="flex:1;">
-                                    <strong>Return Home</strong>
+                                    <strong>${t('return_home')}</strong>
                                     <div style="font-size:0.82rem;color:var(--text-muted);margin-top:2px;">${utils.escapeHtml(startLocation.address || '')}</div>
                                 </div>
                             </div>` : ''}
@@ -857,6 +1248,15 @@ const views = {
                 this._renderRouteResult(apts, legs, totalMinutes, false, this._currentStartLocation, false);
 
                 api.routes.save(state.routeDate, apts.map(a => a.id), totalMinutes).catch(console.error);
+
+                const home = this._currentStartLocation;
+                const dragWaypoints = [];
+                if (home?.lat != null) dragWaypoints.push(home);
+                apts.filter(a => a.lat != null).forEach(a => dragWaypoints.push({ lat: a.lat, lon: a.lon }));
+                if (home?.lat != null) dragWaypoints.push(home);
+                utils.fetchOSRMGeometry(dragWaypoints).then(geo => {
+                    if (geo) mapManager.drawRoute(apts, home, geo);
+                });
             });
 
             listCard.addEventListener('dragend', () => {
@@ -877,28 +1277,28 @@ const views = {
             appView.innerHTML = `
                 <header class="header">
                     <div>
-                        <h1 style="color:var(--text-dark);">Mothers</h1>
-                        <p style="color:var(--text-muted);">${patients.length} active patient${patients.length !== 1 ? 's' : ''}</p>
+                        <h1 style="color:var(--text-dark);">${t('mothers_title')}</h1>
+                        <p style="color:var(--text-muted);">${t('mothers_sub', patients.length)}</p>
                     </div>
-                    <button class="btn-primary" id="btn-add-patient">+ Add Mother</button>
+                    <button class="btn-primary" id="btn-add-patient">${t('add_mother')}</button>
                 </header>
 
                 <div class="card" style="padding:0;overflow:hidden;">
                     ${patients.length === 0 ? `
                         <div class="empty-state" style="padding:3rem;">
-                            <p>No patients yet.</p>
-                            <button class="btn-primary" id="empty-add-patient">+ Add Your First Mother</button>
+                            <p>${t('no_patients')}</p>
+                            <button class="btn-primary" id="empty-add-patient">${t('add_first_mother')}</button>
                         </div>
                     ` : `
                         <table class="patient-table">
                             <thead>
                                 <tr>
-                                    <th>Name</th>
-                                    <th>Status</th>
-                                    <th>GA</th>
-                                    <th>Due Date</th>
-                                    <th>Phone</th>
-                                    <th>Actions</th>
+                                    <th>${t('col_name')}</th>
+                                    <th>${t('col_status')}</th>
+                                    <th>${t('col_ga')}</th>
+                                    <th>${t('col_due')}</th>
+                                    <th>${t('col_phone')}</th>
+                                    <th>${t('col_actions')}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -906,16 +1306,16 @@ const views = {
                                     <tr>
                                         <td>
                                             <strong>${utils.escapeHtml(p.name)}</strong>
-                                            ${p.lat == null ? '<br><span style="font-size:0.72rem;color:var(--pending);">⚠ No map location</span>' : ''}
+                                            ${p.lat == null ? `<br><span style="font-size:0.72rem;color:var(--pending);">${t('no_location_warn')}</span>` : ''}
                                         </td>
-                                        <td><span class="status-badge ${p.status}">${p.status === 'active' ? 'Pregnant' : p.status}</span></td>
+                                        <td><span class="status-badge ${p.status}">${utils.statusLabel(p.status)}</span></td>
                                         <td class="${utils.isGAAlert(p.gestational_age_weeks) ? 'ga-alert' : ''}">${utils.gaLabel(p.gestational_age_weeks, p.gestational_age_days)}</td>
                                         <td style="color:var(--text-muted);font-size:0.88rem;">${p.due_date || '—'}</td>
                                         <td style="color:var(--text-muted);font-size:0.88rem;">${utils.escapeHtml(p.phone) || '—'}</td>
                                         <td>
                                             <div style="display:flex;gap:0.5rem;">
-                                                <button class="btn-secondary btn-sm edit-patient" data-id="${p.id}">Edit</button>
-                                                <button class="btn-danger btn-sm discharge-patient" data-id="${p.id}" data-name="${utils.escapeHtml(p.name)}">Discharge</button>
+                                                <button class="btn-secondary btn-sm edit-patient" data-id="${p.id}">${t('edit_btn')}</button>
+                                                <button class="btn-danger btn-sm discharge-patient" data-id="${p.id}" data-name="${utils.escapeHtml(p.name)}">${t('discharge_btn')}</button>
                                             </div>
                                         </td>
                                     </tr>
@@ -936,10 +1336,10 @@ const views = {
 
             document.querySelectorAll('.discharge-patient').forEach(btn => {
                 btn.addEventListener('click', async () => {
-                    if (!await utils.confirm(`Discharge ${btn.dataset.name}? This will remove them from your active list.`)) return;
+                    if (!await utils.confirm(t('discharge_confirm', btn.dataset.name))) return;
                     try {
                         await api.patients.delete(btn.dataset.id);
-                        utils.showToast(`${btn.dataset.name} discharged`);
+                        utils.showToast(t('discharged_toast', btn.dataset.name));
                         views.mothers.render();
                     } catch (err) {
                         utils.showToast(err.message, 'error');
@@ -969,48 +1369,48 @@ const modals = {
         overlay.className = 'modal-overlay';
         overlay.innerHTML = `
             <div class="modal-box">
-                <h2>${isEdit ? 'Edit Mother' : 'Add Mother'}</h2>
+                <h2>${isEdit ? t('edit_mother') : t('add_mother_modal')}</h2>
                 <div class="form-grid">
                     <div class="form-group full-width">
-                        <label>Full Name *</label>
-                        <input type="text" id="f-name" class="input-field" value="${utils.escapeHtml(p.name || '')}" placeholder="e.g. Maria Schmidt">
+                        <label>${t('label_fullname')}</label>
+                        <input type="text" id="f-name" class="input-field" value="${utils.escapeHtml(p.name || '')}" placeholder="${t('placeholder_name')}">
                     </div>
                     <div class="form-group full-width">
-                        <label>Address * <span style="font-size:0.75rem;font-weight:400;">(used for map & route)</span></label>
-                        <input type="text" id="f-address" class="input-field" value="${utils.escapeHtml(p.address || '')}" placeholder="e.g. Musterstr. 1, 10115 Berlin">
+                        <label>${t('label_address')} <span style="font-size:0.75rem;font-weight:400;">${t('label_address_hint')}</span></label>
+                        <input type="text" id="f-address" class="input-field" value="${utils.escapeHtml(p.address || '')}" placeholder="${t('placeholder_address')}">
                     </div>
                     <div class="form-group">
-                        <label>Phone</label>
+                        <label>${t('label_phone')}</label>
                         <input type="tel" id="f-phone" class="input-field" value="${utils.escapeHtml(p.phone || '')}">
                     </div>
                     <div class="form-group">
-                        <label>Status</label>
+                        <label>${t('label_status')}</label>
                         <select id="f-status" class="input-field">
-                            <option value="active" ${p.status === 'active' || !p.status ? 'selected' : ''}>Pregnant</option>
-                            <option value="postpartum" ${p.status === 'postpartum' ? 'selected' : ''}>Postpartum</option>
+                            <option value="active" ${p.status === 'active' || !p.status ? 'selected' : ''}>${t('opt_pregnant')}</option>
+                            <option value="postpartum" ${p.status === 'postpartum' ? 'selected' : ''}>${t('opt_postpartum')}</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>GA Weeks</label>
+                        <label>${t('label_ga_weeks')}</label>
                         <input type="number" id="f-ga-weeks" class="input-field" value="${p.gestational_age_weeks || 0}" min="0" max="45">
                     </div>
                     <div class="form-group">
-                        <label>GA Days</label>
+                        <label>${t('label_ga_days')}</label>
                         <input type="number" id="f-ga-days" class="input-field" value="${p.gestational_age_days || 0}" min="0" max="6">
                     </div>
                     <div class="form-group">
-                        <label>Due Date</label>
+                        <label>${t('label_due_date')}</label>
                         <input type="date" id="f-due" class="input-field" value="${p.due_date || ''}">
                     </div>
                     <div class="form-group full-width">
-                        <label>Notes</label>
+                        <label>${t('label_notes')}</label>
                         <textarea id="f-notes" class="input-field" rows="3" style="resize:vertical;">${utils.escapeHtml(p.notes || '')}</textarea>
                     </div>
                 </div>
                 <div class="form-actions">
-                    <button class="btn-secondary" id="modal-cancel">Cancel</button>
+                    <button class="btn-secondary" id="modal-cancel">${t('cancel_btn')}</button>
                     <button class="btn-primary" id="modal-save">
-                        ${isEdit ? 'Save Changes' : 'Add Mother'}
+                        ${isEdit ? t('save_changes') : t('add_mother_btn')}
                     </button>
                 </div>
                 <div id="modal-status" style="text-align:center;font-size:0.82rem;color:var(--text-muted);margin-top:0.5rem;"></div>
@@ -1025,15 +1425,15 @@ const modals = {
             const name    = document.getElementById('f-name').value.trim();
             const address = document.getElementById('f-address').value.trim();
             if (!name || !address) {
-                utils.showToast('Name and address are required', 'error');
+                utils.showToast(t('name_address_required'), 'error');
                 return;
             }
 
             const btn = document.getElementById('modal-save');
             const statusEl = document.getElementById('modal-status');
             btn.disabled = true;
-            btn.textContent = isEdit ? 'Saving…' : 'Adding…';
-            statusEl.textContent = 'Geocoding address…';
+            btn.textContent = isEdit ? t('saving') : t('adding');
+            statusEl.textContent = t('geocoding_address');
 
             const data = {
                 name, address,
@@ -1048,17 +1448,17 @@ const modals = {
             try {
                 if (isEdit) {
                     await api.patients.update(p.id, data);
-                    utils.showToast('Changes saved');
+                    utils.showToast(t('changes_saved'));
                 } else {
                     await api.patients.create(data);
-                    utils.showToast('Mother added');
+                    utils.showToast(t('mother_added'));
                 }
                 modals._close();
                 if (onSuccess) onSuccess();
             } catch (err) {
                 utils.showToast(err.message, 'error');
                 btn.disabled = false;
-                btn.textContent = isEdit ? 'Save Changes' : 'Add Mother';
+                btn.textContent = isEdit ? t('save_changes') : t('add_mother_btn');
                 statusEl.textContent = '';
             }
         });
@@ -1082,40 +1482,40 @@ const modals = {
         overlay.className = 'modal-overlay';
         overlay.innerHTML = `
             <div class="modal-box">
-                <h2>${isEdit ? 'Edit Appointment' : 'New Appointment'}</h2>
+                <h2>${isEdit ? t('edit_apt') : t('new_apt')}</h2>
                 <div class="form-grid">
                     <div class="form-group full-width">
-                        <label>Patient *</label>
+                        <label>${t('label_patient')}</label>
                         <select id="f-patient" class="input-field">
-                            <option value="">— Select a patient —</option>
+                            <option value="">${t('select_patient')}</option>
                             ${patients.map(p => `<option value="${p.id}" ${apt.patient_id === p.id ? 'selected' : ''}>${utils.escapeHtml(p.name)}</option>`).join('')}
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Date *</label>
+                        <label>${t('label_date')}</label>
                         <input type="date" id="f-date" class="input-field" value="${apt.date || prefillDate || utils.today()}">
                     </div>
                     <div class="form-group">
-                        <label>Time *</label>
+                        <label>${t('label_time')}</label>
                         <input type="time" id="f-time" class="input-field" value="${apt.time || '09:00'}">
                     </div>
                     <div class="form-group full-width">
-                        <label>Visit Type *</label>
+                        <label>${t('label_visit_type')}</label>
                         <select id="f-visit-type" class="input-field">
-                            <option value="prenatal"  ${apt.visit_type === 'prenatal'  || !apt.visit_type ? 'selected' : ''}>Prenatal</option>
-                            <option value="birth"     ${apt.visit_type === 'birth'     ? 'selected' : ''}>Birth</option>
-                            <option value="postnatal" ${apt.visit_type === 'postnatal' ? 'selected' : ''}>Postnatal</option>
+                            <option value="prenatal"  ${apt.visit_type === 'prenatal'  || !apt.visit_type ? 'selected' : ''}>${t('type_prenatal')}</option>
+                            <option value="birth"     ${apt.visit_type === 'birth'     ? 'selected' : ''}>${t('type_birth')}</option>
+                            <option value="postnatal" ${apt.visit_type === 'postnatal' ? 'selected' : ''}>${t('type_postnatal')}</option>
                         </select>
                     </div>
                     <div class="form-group full-width">
-                        <label>Notes</label>
+                        <label>${t('label_notes')}</label>
                         <textarea id="f-apt-notes" class="input-field" rows="2" style="resize:vertical;">${utils.escapeHtml(apt.notes || '')}</textarea>
                     </div>
                 </div>
                 <div class="form-actions">
-                    ${isEdit ? '<button class="btn-danger" id="modal-cancel-apt">Cancel Appointment</button>' : ''}
-                    <button class="btn-secondary" id="modal-close">Close</button>
-                    <button class="btn-primary" id="modal-save-apt">${isEdit ? 'Save Changes' : 'Schedule'}</button>
+                    ${isEdit ? `<button class="btn-danger" id="modal-cancel-apt">${t('cancel_apt_btn')}</button>` : ''}
+                    <button class="btn-secondary" id="modal-close">${t('close_btn')}</button>
+                    <button class="btn-primary" id="modal-save-apt">${isEdit ? t('save_changes') : t('schedule_btn')}</button>
                 </div>
             </div>
         `;
@@ -1125,10 +1525,10 @@ const modals = {
         overlay.addEventListener('click', e => { if (e.target === overlay) modals._close(); });
 
         document.getElementById('modal-cancel-apt')?.addEventListener('click', async () => {
-            if (!await utils.confirm('Cancel this appointment?')) return;
+            if (!await utils.confirm(t('cancel_apt_confirm'))) return;
             try {
                 await api.appointments.cancel(apt.id);
-                utils.showToast('Appointment cancelled');
+                utils.showToast(t('apt_cancelled'));
                 modals._close();
                 if (onSuccess) onSuccess();
             } catch (err) {
@@ -1143,13 +1543,13 @@ const modals = {
             const visit_type  = document.getElementById('f-visit-type').value;
 
             if (!patient_id || !date || !time) {
-                utils.showToast('Patient, date, and time are required', 'error');
+                utils.showToast(t('patient_date_time_required'), 'error');
                 return;
             }
 
             const btn = document.getElementById('modal-save-apt');
             btn.disabled = true;
-            btn.textContent = 'Saving…';
+            btn.textContent = t('saving_apt');
 
             const data = {
                 patient_id, date, time, visit_type,
@@ -1159,17 +1559,17 @@ const modals = {
             try {
                 if (isEdit) {
                     await api.appointments.update(apt.id, data);
-                    utils.showToast('Appointment updated');
+                    utils.showToast(t('apt_updated'));
                 } else {
                     await api.appointments.create(data);
-                    utils.showToast('Appointment scheduled');
+                    utils.showToast(t('apt_scheduled'));
                 }
                 modals._close();
                 if (onSuccess) onSuccess();
             } catch (err) {
                 utils.showToast(err.message, 'error');
                 btn.disabled = false;
-                btn.textContent = isEdit ? 'Save Changes' : 'Schedule';
+                btn.textContent = isEdit ? t('save_changes') : t('schedule_btn');
             }
         });
     },
@@ -1180,5 +1580,19 @@ const modals = {
 // =============================================================================
 document.addEventListener('DOMContentLoaded', () => {
     router.init();
+    updateNav();
+    updateBanner();
+
+    document.getElementById('lang-toggle').addEventListener('click', () => {
+        state.lang = state.lang === 'de' ? 'en' : 'de';
+        localStorage.setItem('juno_lang', state.lang);
+        updateNav();
+        updateBanner();
+        // Re-render current view in new language
+        if (state.currentView) {
+            router.navigateTo(state.currentView);
+        }
+    });
+
     router.navigateTo('dashboard');
 });

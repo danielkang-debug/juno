@@ -53,7 +53,7 @@ h3 {
 .app-container {
     display: grid;
     grid-template-columns: 280px 1fr;
-    height: 100vh;
+    height: calc(100vh - 33px);
 }
 
 .sidebar {
@@ -385,6 +385,45 @@ h3 {
     overflow: hidden;
     border: 1px solid var(--grey-mid);
     z-index: 0;
+    transition: height 0.25s ease;
+}
+
+#route-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    align-items: start;
+    transition: grid-template-columns 0.25s ease;
+}
+
+#route-layout.map-expanded {
+    grid-template-columns: 1fr;
+}
+
+#route-layout.map-expanded #map {
+    height: 580px;
+}
+
+/* Leaflet-injected expand button */
+.map-expand-btn {
+    background: white;
+    border: 2px solid rgba(0,0,0,0.2);
+    border-radius: 4px;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 15px;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.25);
+    color: var(--text-dark);
+    line-height: 1;
+    padding: 0;
+}
+
+.map-expand-btn:hover {
+    background: #f4f4f4;
 }
 
 .route-stop {
@@ -690,4 +729,42 @@ h3 {
 @keyframes slideInLeft {
     from { opacity: 0; transform: translateX(-16px); }
     to   { opacity: 1; transform: translateX(0); }
+}
+
+/* --- Prototype warning banner --- */
+.prototype-banner {
+    position: sticky;
+    top: 0;
+    z-index: 9999;
+    background: #FFF3CD;
+    color: #856404;
+    border-bottom: 1px solid #FFE083;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 3.5rem 0.5rem 1rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0.01em;
+}
+
+.lang-toggle-btn {
+    position: absolute;
+    right: 1rem;
+    background: rgba(133, 100, 4, 0.12);
+    border: 1px solid rgba(133, 100, 4, 0.3);
+    color: #856404;
+    border-radius: 4px;
+    padding: 2px 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0.05em;
+    transition: background 0.15s;
+}
+
+.lang-toggle-btn:hover {
+    background: rgba(133, 100, 4, 0.22);
 }
