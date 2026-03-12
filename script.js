@@ -1576,6 +1576,59 @@ const modals = {
 };
 
 // =============================================================================
+// PASSWORD GATE
+// =============================================================================
+const PASSWORD = 'Juno2026';
+const AUTH_KEY = 'juno_auth';
+
+function isAuthenticated() {
+    return sessionStorage.getItem(AUTH_KEY) === '1';
+}
+
+function showPasswordGate(onSuccess) {
+    // Hide the app while locked
+    document.querySelector('.app-container').style.display = 'none';
+    document.querySelector('.prototype-banner').style.display = 'none';
+
+    const gate = document.createElement('div');
+    gate.id = 'password-gate';
+    gate.innerHTML = `
+        <div class="password-box">
+            <img src="assets/logo.png" alt="Juno" style="width:72px;margin-bottom:1.5rem;">
+            <h2 style="margin-bottom:0.25rem;">Juno</h2>
+            <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:2rem;">Bitte Passwort eingeben</p>
+            <input type="password" id="gate-input" class="input-field" placeholder="Passwort" style="width:100%;margin-bottom:0.75rem;">
+            <div id="gate-error" style="color:var(--pending);font-size:0.82rem;min-height:1.2rem;margin-bottom:0.75rem;"></div>
+            <button class="btn-primary" id="gate-submit" style="width:100%;">Weiter</button>
+        </div>
+    `;
+    document.body.appendChild(gate);
+
+    const input = document.getElementById('gate-input');
+    const submitBtn = document.getElementById('gate-submit');
+    const errorEl = document.getElementById('gate-error');
+
+    input.focus();
+
+    function attempt() {
+        if (input.value === PASSWORD) {
+            sessionStorage.setItem(AUTH_KEY, '1');
+            gate.remove();
+            document.querySelector('.app-container').style.display = '';
+            document.querySelector('.prototype-banner').style.display = '';
+            onSuccess();
+        } else {
+            errorEl.textContent = 'Falsches Passwort. Bitte erneut versuchen.';
+            input.value = '';
+            input.focus();
+        }
+    }
+
+    submitBtn.addEventListener('click', attempt);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') attempt(); });
+}
+
+// =============================================================================
 // INIT
 // =============================================================================
 document.addEventListener('DOMContentLoaded', () => {
@@ -1588,11 +1641,18 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('juno_lang', state.lang);
         updateNav();
         updateBanner();
-        // Re-render current view in new language
         if (state.currentView) {
             router.navigateTo(state.currentView);
         }
     });
 
-    router.navigateTo('dashboard');
+    function startApp() {
+        router.navigateTo('dashboard');
+    }
+
+    if (isAuthenticated()) {
+        startApp();
+    } else {
+        showPasswordGate(startApp);
+    }
 });

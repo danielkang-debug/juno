@@ -768,3 +768,27 @@ h3 {
 .lang-toggle-btn:hover {
     background: rgba(133, 100, 4, 0.22);
 }
+
+/* --- Password gate --- */
+#password-gate {
+    position: fixed;
+    inset: 0;
+    background: var(--cream);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.password-box {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    padding: 2.5rem;
+    width: 360px;
+    max-width: 95vw;
+    box-shadow: 0 24px 64px rgba(44, 51, 42, 0.12);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
