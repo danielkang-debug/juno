@@ -9,7 +9,8 @@ import json
 from datetime import datetime, date, timedelta
 from typing import Optional, List
 
-DB_PATH = "juno.db"
+import os
+DB_PATH = os.environ.get("DB_PATH", "juno.db")
 
 
 def get_conn():
