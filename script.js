@@ -783,8 +783,8 @@ const views = {
                 </div>
             `;
 
-            document.getElementById('dash-new-apt').addEventListener('click', () => modals.appointment(utils.today()));
-            document.getElementById('dash-add-mother').addEventListener('click', () => modals.patient(null, () => views.dashboard.render()));
+            document.getElementById('dash-new-apt')?.addEventListener('click', () => modals.appointment(utils.today()));
+            document.getElementById('dash-add-mother')?.addEventListener('click', () => modals.patient(null, () => views.dashboard.render()));
             document.getElementById('qa-plan-route')?.addEventListener('click', () => router.navigateTo('routes', { date: utils.today() }));
             document.getElementById('qa-view-mothers')?.addEventListener('click', () => router.navigateTo('mothers'));
             document.querySelectorAll('[data-date]').forEach(cell => {
@@ -861,15 +861,15 @@ const views = {
                 </div>
             `;
 
-            document.getElementById('cal-prev').addEventListener('click', () => {
+            document.getElementById('cal-prev')?.addEventListener('click', () => {
                 state.calendarMonth = new Date(state.calendarMonth.getFullYear(), state.calendarMonth.getMonth() - 1, 1);
                 views.calendar.render();
             });
-            document.getElementById('cal-next').addEventListener('click', () => {
+            document.getElementById('cal-next')?.addEventListener('click', () => {
                 state.calendarMonth = new Date(state.calendarMonth.getFullYear(), state.calendarMonth.getMonth() + 1, 1);
                 views.calendar.render();
             });
-            document.getElementById('cal-new-apt').addEventListener('click', () => modals.appointment(today));
+            document.getElementById('cal-new-apt')?.addEventListener('click', () => modals.appointment(today));
             document.querySelectorAll('.day-cell[data-date]').forEach(cell => {
                 cell.addEventListener('click', () => views.calendar.renderDayDetail(cell.dataset.date));
             });
@@ -919,9 +919,9 @@ const views = {
                 </div>
             `;
 
-            document.getElementById('back-to-month').addEventListener('click', () => views.calendar.render());
-            document.getElementById('btn-add-apt').addEventListener('click', () => modals.appointment(isoDate, null, () => views.calendar.renderDayDetail(isoDate)));
-            document.getElementById('btn-view-route').addEventListener('click', () => router.navigateTo('routes', { date: isoDate }));
+            document.getElementById('back-to-month')?.addEventListener('click', () => views.calendar.render());
+            document.getElementById('btn-add-apt')?.addEventListener('click', () => modals.appointment(isoDate, null, () => views.calendar.renderDayDetail(isoDate)));
+            document.getElementById('btn-view-route')?.addEventListener('click', () => router.navigateTo('routes', { date: isoDate }));
             document.getElementById('empty-add-apt')?.addEventListener('click', () => modals.appointment(isoDate, null, () => views.calendar.renderDayDetail(isoDate)));
 
             document.querySelectorAll('.apt-card[data-id]').forEach(card => {
@@ -1031,7 +1031,7 @@ const views = {
                 }
             }
 
-            document.getElementById('btn-set-home').addEventListener('click', async () => {
+            document.getElementById('btn-set-home')?.addEventListener('click', async () => {
                 const address = document.getElementById('home-address-input').value.trim();
                 if (!address) { utils.showToast(t('enter_address'), 'error'); return; }
                 const statusEl = document.getElementById('home-status');
@@ -1056,12 +1056,12 @@ const views = {
                 views.routeView.render({ date: state.routeDate });
             });
 
-            document.getElementById('route-date-picker').addEventListener('change', e => {
+            document.getElementById('route-date-picker')?.addEventListener('change', e => {
                 state.routeDate = e.target.value;
                 router.navigateTo('routes', { date: e.target.value });
             });
 
-            document.getElementById('btn-optimize').addEventListener('click', async () => {
+            document.getElementById('btn-optimize')?.addEventListener('click', async () => {
                 const btn = document.getElementById('btn-optimize');
                 btn.textContent = t('optimizing');
                 btn.disabled = true;
@@ -1326,7 +1326,7 @@ const views = {
                 </div>
             `;
 
-            document.getElementById('btn-add-patient').addEventListener('click', () => modals.patient(null, () => views.mothers.render()));
+            document.getElementById('btn-add-patient')?.addEventListener('click', () => modals.patient(null, () => views.mothers.render()));
             document.getElementById('empty-add-patient')?.addEventListener('click', () => modals.patient(null, () => views.mothers.render()));
 
             document.querySelectorAll('.edit-patient').forEach(btn => {
@@ -1418,10 +1418,10 @@ const modals = {
         `;
 
         document.body.appendChild(overlay);
-        document.getElementById('modal-cancel').addEventListener('click', () => modals._close());
+        document.getElementById('modal-cancel')?.addEventListener('click', () => modals._close());
         overlay.addEventListener('click', e => { if (e.target === overlay) modals._close(); });
 
-        document.getElementById('modal-save').addEventListener('click', async () => {
+        document.getElementById('modal-save')?.addEventListener('click', async () => {
             const name    = document.getElementById('f-name').value.trim();
             const address = document.getElementById('f-address').value.trim();
             if (!name || !address) {
@@ -1521,7 +1521,7 @@ const modals = {
         `;
 
         document.body.appendChild(overlay);
-        document.getElementById('modal-close').addEventListener('click', () => modals._close());
+        document.getElementById('modal-close')?.addEventListener('click', () => modals._close());
         overlay.addEventListener('click', e => { if (e.target === overlay) modals._close(); });
 
         document.getElementById('modal-cancel-apt')?.addEventListener('click', async () => {
@@ -1536,7 +1536,7 @@ const modals = {
             }
         });
 
-        document.getElementById('modal-save-apt').addEventListener('click', async () => {
+        document.getElementById('modal-save-apt')?.addEventListener('click', async () => {
             const patient_id  = document.getElementById('f-patient').value;
             const date        = document.getElementById('f-date').value;
             const time        = document.getElementById('f-time').value;
