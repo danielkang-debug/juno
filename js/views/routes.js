@@ -20,8 +20,6 @@ import { mapManager } from '../map.js';
 export const routesView = {
     // Mutable ordered list of appointment dicts for the current day
     _orderedApts: [],
-    // Cached legs from server optimization (used until user drags)
-    _serverLegs: [],
     // Drag state
     _dragIdx: null,
 
@@ -74,8 +72,7 @@ export const routesView = {
         try {
             const apts = await api.appointments.byDate(date);
             this._orderedApts = apts;
-            this._serverLegs = [];
-            this._renderDraggableList();
+                        this._renderDraggableList();
             this._updateMapFromOrder();
         } catch (err) {
             container.innerHTML = `<div class="error-msg">${err.message}</div>`;
@@ -435,7 +432,6 @@ export const routesView = {
 
             // Update local order from server optimization
             this._orderedApts = result.ordered_appointments;
-            this._serverLegs = result.legs || [];
 
             // Re-render the draggable list with new order
             this._renderDraggableList();

@@ -12,7 +12,7 @@ export const authView = {
             <div class="auth-view">
                 <div class="auth-card">
                     <div class="auth-logo">
-                        <img src="assets/logo.png" alt="Juno" style="height: 60px;">
+                        <img src="assets/j-icon.png" alt="Juno" style="height: 80px; border-radius: 18px;">
                     </div>
                     <h2 class="auth-title" id="auth-title">${t('auth_login_title')}</h2>
                     <p class="auth-subtitle" id="auth-subtitle">${t('auth_login_sub')}</p>

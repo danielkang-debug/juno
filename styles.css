@@ -68,9 +68,25 @@ h3 {
     gap: 2rem;
 }
 
-.logo-container img {
-    height: 48px;
+.logo-container {
+    display: flex;
+    align-items: center;
+    padding: 0.25rem 0;
 }
+
+.logo-wordmark {
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+    font-family: 'Playfair Display', serif;
+    font-size: 1.6rem;
+    font-weight: 600;
+    letter-spacing: 3px;
+}
+.logo-wordmark .l-j { color: #D4A0A0; }
+.logo-wordmark .l-u { color: #A8BA9A; }
+.logo-wordmark .l-n { color: #C4A94D; }
+.logo-wordmark .l-o { color: #E8DCC8; }
 
 .nav-links {
     display: flex;
