@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Juno — Database Schema</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f3ef;
+    --card-shadow: 0 2px 16px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.05);
+
+    --patient-hue: #e8f4f8;
+    --patient-accent: #2a7fa8;
+    --patient-border: #b8dce8;
+    --patient-header: #1a5f80;
+
+    --appt-hue: #eaf5ec;
+    --appt-accent: #2e8b4a;
+    --appt-border: #b8dfc2;
+    --appt-header: #1e6835;
+
+    --route-hue: #fdf3e3;
+    --route-accent: #c07a1a;
+    --route-border: #f0d4a0;
+    --route-header: #8c560e;
+
+    --pk-bg: #fff3cd;
+    --pk-color: #7a5200;
+    --fk-bg: #d4edda;
+    --fk-color: #155724;
+    --unique-bg: #e2d9f3;
+    --unique-color: #4a2d7a;
+
+    --text: #2c2c2c;
+    --text-muted: #888;
+    --field-border: rgba(0,0,0,0.06);
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    min-height: 100vh;
+    padding: 48px 32px 80px;
+    color: var(--text);
+  }
+
+  /* subtle grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,0,0,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,0,0,0.035) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .page { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; }
+
+  header {
+    margin-bottom: 52px;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+
+  header h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2rem;
+    color: #1a1a1a;
+    letter-spacing: -0.5px;
+  }
+
+  header span {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    background: rgba(0,0,0,0.06);
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+
+  /* ── DIAGRAM ── */
+  .diagram {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 28px;
+    align-items: start;
+    position: relative;
+  }
+
+  /* SVG connector overlay */
+  .connector-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: visible;
+    z-index: 10;
+  }
+
+  /* ── TABLE CARD ── */
+  .table-card {
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--card-shadow);
+    border: 1px solid transparent;
+    background: white;
+    position: relative;
+    z-index: 2;
+  }
+
+  .table-card.patients  { border-color: var(--patient-border); }
+  .table-card.appointments { border-color: var(--appt-border); }
+  .table-card.routes    { border-color: var(--route-border); }
+
+  .table-header {
+    padding: 14px 18px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .patients  .table-header { background: var(--patient-hue); border-bottom: 1px solid var(--patient-border); }
+  .appointments .table-header { background: var(--appt-hue); border-bottom: 1px solid var(--appt-border); }
+  .routes    .table-header { background: var(--route-hue); border-bottom: 1px solid var(--route-border); }
+
+  .table-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .patients  .table-icon { background: var(--patient-accent); color: white; }
+  .appointments .table-icon { background: var(--appt-accent); color: white; }
+  .routes    .table-icon { background: var(--route-accent); color: white; }
+
+  .table-name {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.9rem;
+    font-weight: 500;
+    letter-spacing: -0.3px;
+  }
+
+  .patients  .table-name { color: var(--patient-header); }
+  .appointments .table-name { color: var(--appt-header); }
+  .routes    .table-name { color: var(--route-header); }
+
+  .table-row-count {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* ── FIELDS ── */
+  .fields { padding: 6px 0 8px; }
+
+  .field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 18px;
+    border-bottom: 1px solid var(--field-border);
+    transition: background 0.15s;
+  }
+
+  .field:last-child { border-bottom: none; }
+  .field:hover { background: rgba(0,0,0,0.018); }
+
+  .field-name {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #333;
+    flex-shrink: 0;
+    min-width: 130px;
+  }
+
+  .field-type {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    flex: 1;
+  }
+
+  .field-enum {
+    font-size: 0.62rem;
+    color: #999;
+    font-style: italic;
+    margin-top: 1px;
+    line-height: 1.3;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .field-meta { display: flex; flex-direction: column; flex: 1; }
+
+  /* badges */
+  .badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  .badge.pk     { background: var(--pk-bg);     color: var(--pk-color); }
+  .badge.fk     { background: var(--fk-bg);     color: var(--fk-color); }
+  .badge.unique { background: var(--unique-bg);  color: var(--unique-color); }
+  .badge.null   { background: #f0f0f0; color: #999; }
+
+  /* ── LEGEND ── */
+  .legend {
+    margin-top: 36px;
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .legend-title {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-right: 8px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+    color: #555;
+  }
+
+  .legend-line {
+    width: 32px;
+    height: 2px;
+    border-radius: 2px;
+  }
+
+  .legend-line.solid   { background: #555; }
+  .legend-line.dashed  { background: repeating-linear-gradient(90deg,#aaa 0,#aaa 4px,transparent 4px,transparent 8px); height: 2px; }
+  .legend-line.fk-line { background: var(--appt-accent); }
+  .legend-line.ref-line { background: var(--route-accent); height: 2px;
+    background: repeating-linear-gradient(90deg, var(--route-accent) 0, var(--route-accent) 5px, transparent 5px, transparent 10px);
+  }
+
+  .rel-label {
+    font-size: 0.72rem;
+    font-family: 'DM Mono', monospace;
+    color: var(--text-muted);
+    background: white;
+    border: 1px solid #ddd;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  /* section divider inside card */
+  .field-section-label {
+    padding: 4px 18px 2px;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #bbb;
+    font-weight: 600;
+    border-top: 1px solid var(--field-border);
+    margin-top: 2px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <h1>Juno — Database Schema</h1>
+    <span>SQLite · 3 tables</span>
+  </header>
+
+  <div class="diagram" id="diagram">
+
+    <!-- SVG connector layer -->
+    <svg class="connector-layer" id="connectors" xmlns="http://www.w3.org/2000/svg"></svg>
+
+    <!-- ── PATIENTS ── -->
+    <div class="table-card patients" id="tbl-patients">
+      <div class="table-header">
+        <div class="table-icon">👩</div>
+        <span class="table-name">patients</span>
+        <span class="table-row-count">12 fields</span>
+      </div>
+      <div class="fields">
+        <div class="field" id="patients-id">
+          <span class="field-name">id</span>
+          <div class="field-meta">
+            <span class="field-type">TEXT · UUID</span>
+          </div>
+          <span class="badge pk">PK</span>
+        </div>
+        <div class="field">
+          <span class="field-name">name</span>
+          <div class="field-meta"><span class="field-type">TEXT · NOT NULL</span></div>
+        </div>
+        <div class="field">
+          <span class="field-name">address</span>
+          <div class="field-meta"><span class="field-type">TEXT · NOT NULL</span></div>
+        </div>
+        <div class="field">
+          <span class="field-name">lat</span>
+          <div class="field-meta"><span class="field-type">REAL</span></div>
+          <span class="badge null">null</span>
+        </div>
+        <div class="field">
+          <span class="field-name">lon</span>
+          <div class="field-meta"><span class="field-type">REAL</span></div>
+          <span class="badge null">null</span>
+        </div>
+        <div class="field">
+          <span class="field-name">phone</span>
+          <div class="field-meta"><span class="field-type">TEXT</span></div>
+        </div>
+        <div class="field">
+          <span class="field-name">gestational_age_weeks</span>
+          <div class="field-meta"><span class="field-type">INTEGER</span></div>
+        </div>
+        <div class="field">
+          <span class="field-name">gestational_age_days</span>
+          <div class="field-meta"><span class="field-type">INTEGER</span></div>
+        </div>
+        <div class="field">
+          <span class="field-name">due_date</span>
+          <div class="field-meta"><span class="field-type">TEXT · YYYY-MM-DD</span></div>
+        </div>
+        <div class="field">
+          <span class="field-name">notes</span>
+          <div class="field-meta"><span class="field-type">TEXT</span></div>
+        </div>
+        <div class="field">
+          <span class="field-name">status</span>
+          <div class="field-meta">
+            <span class="field-type">TEXT · enum</span>
+            <span class="field-enum">active · postpartum · discharged</span>
+          </div>
+        </div>
+        <div class="field">
+          <span class="field-name">created_at</span>
+          <div class="field-meta"><span class="field-type">TEXT · ISO datetime</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── APPOINTMENTS ── -->
+    <div class="table-card appointments" id="tbl-appointments">
+      <div class="table-header">
+        <div class="table-icon">📅</div>
+        <span class="table-name">appointments</span>
+        <span class="table-row-count">8 fields</span>
+      </div>
+      <div class="fields">
+        <div class="field" id="appt-id">
+          <span class="field-name">id</span>
+          <div class="field-meta"><span class="field-type">TEXT · UUID</span></div>
+          <span class="badge pk">PK</span>
+        </div>
+        <div class="field" id="appt-patient-id">
+          <span class="field-name">patient_id</span>
+          <div class="field-meta"><span class="field-type">TEXT · NOT NULL</span></div>
+          <span class="badge fk">FK</span>
+        </div>
+        <div class="field">
+          <span class="field-name">date</span>
+          <div class="field-meta"><span class="field-type">TEXT · YYYY-MM-DD</span></div>
+        </div>
+        <div class="field">
+          <span class="field-name">time</span>
+          <div class="field-meta"><span class="field-type">TEXT · HH:MM</span></div>
+        </div>
+        <div class="field">
+          <span class="field-name">visit_type</span>
+          <div class="field-meta">
+            <span class="field-type">TEXT · enum</span>
+            <span class="field-enum">prenatal · birth · postnatal</span>
+          </div>
+        </div>
+        <div class="field">
+          <span class="field-name">notes</span>
+          <div class="field-meta"><span class="field-type">TEXT</span></div>
+        </div>
+        <div class="field">
+          <span class="field-name">status</span>
+          <div class="field-meta">
+            <span class="field-type">TEXT · enum</span>
+            <span class="field-enum">scheduled · completed · cancelled</span>
+          </div>
+        </div>
+        <div class="field">
+          <span class="field-name">created_at</span>
+          <div class="field-meta"><span class="field-type">TEXT · ISO datetime</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ROUTES ── -->
+    <div class="table-card routes" id="tbl-routes">
+      <div class="table-header">
+        <div class="table-icon">🗺️</div>
+        <span class="table-name">routes</span>
+        <span class="table-row-count">5 fields</span>
+      </div>
+      <div class="fields">
+        <div class="field">
+          <span class="field-name">id</span>
+          <div class="field-meta"><span class="field-type">TEXT · UUID</span></div>
+          <span class="badge pk">PK</span>
+        </div>
+        <div class="field">
+          <span class="field-name">date</span>
+          <div class="field-meta"><span class="field-type">TEXT · YYYY-MM-DD</span></div>
+          <span class="badge unique">UQ</span>
+        </div>
+        <div class="field" id="route-appt-ids">
+          <span class="field-name">ordered_appointment_ids</span>
+          <div class="field-meta">
+            <span class="field-type">TEXT · JSON array</span>
+            <span class="field-enum">["uuid", "uuid", …]</span>
+          </div>
+        </div>
+        <div class="field">
+          <span class="field-name">estimated_travel_minutes</span>
+          <div class="field-meta"><span class="field-type">INTEGER</span></div>
+        </div>
+        <div class="field">
+          <span class="field-name">saved_at</span>
+          <div class="field-meta"><span class="field-type">TEXT · ISO datetime</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /diagram -->
+
+  <!-- legend -->
+  <div class="legend">
+    <span class="legend-title">Legend</span>
+    <div class="legend-item">
+      <div class="legend-line fk-line"></div>
+      <span>FK → PK (many-to-one)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-line ref-line"></div>
+      <span>JSON reference (logical, no FK constraint)</span>
+    </div>
+    <div class="legend-item"><span class="badge pk">PK</span> Primary key</div>
+    <div class="legend-item"><span class="badge fk">FK</span> Foreign key</div>
+    <div class="legend-item"><span class="badge unique">UQ</span> Unique</div>
+    <div class="legend-item"><span class="badge null">null</span> Nullable</div>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+  // Draw SVG connectors between fields after layout
+  function drawConnectors() {
+    const svg = document.getElementById('connectors');
+    const diagram = document.getElementById('diagram');
+    const diagramRect = diagram.getBoundingClientRect();
+
+    svg.innerHTML = '';
+    svg.setAttribute('width', diagramRect.width);
+    svg.setAttribute('height', diagramRect.height);
+
+    // Get the right edge midpoint of an element
+    function right(el) {
+      const r = el.getBoundingClientRect();
+      return { x: r.right - diagramRect.left, y: r.top + r.height / 2 - diagramRect.top };
+    }
+
+    // Get the left edge midpoint of an element
+    function left(el) {
+      const r = el.getBoundingClientRect();
+      return { x: r.left - diagramRect.left, y: r.top + r.height / 2 - diagramRect.top };
+    }
+
+    function makeCurve(x1, y1, x2, y2, color, dashed) {
+      const cx = (x1 + x2) / 2;
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', `M ${x1} ${y1} C ${cx} ${y1}, ${cx} ${y2}, ${x2} ${y2}`);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', color);
+      path.setAttribute('stroke-width', '1.8');
+      if (dashed) path.setAttribute('stroke-dasharray', '5 4');
+      path.setAttribute('opacity', '0.8');
+      return path;
+    }
+
+    function makeDot(x, y, color) {
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c.setAttribute('cx', x); c.setAttribute('cy', y);
+      c.setAttribute('r', '3.5'); c.setAttribute('fill', color);
+      return c;
+    }
+
+    // Arrow pointing LEFT ← (tip at x,y, used when line arrives at a right edge)
+    function arrowLeft(x, y, color) {
+      const p = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      p.setAttribute('points', `${x},${y} ${x+9},${y-4.5} ${x+9},${y+4.5}`);
+      p.setAttribute('fill', color);
+      return p;
+    }
+
+    // Layout: [patients(left)] [appointments(center)] [routes(right)]
+    //
+    // Line 1 — FK: appointments.patient_id → patients.id
+    //   starts at LEFT edge of patient_id row, ends at RIGHT edge of patients.id row
+    //   arrow points LEFT (←) into the patients card
+    const fkStart = left(document.getElementById('appt-patient-id'));
+    const fkEnd   = right(document.getElementById('patients-id'));
+    svg.appendChild(makeCurve(fkStart.x, fkStart.y, fkEnd.x, fkEnd.y, '#2e8b4a', false));
+    svg.appendChild(makeDot(fkStart.x, fkStart.y, '#2e8b4a'));
+    svg.appendChild(arrowLeft(fkEnd.x, fkEnd.y, '#2e8b4a'));
+
+    // Line 2 — JSON ref: routes.ordered_appointment_ids → appointments.id
+    //   starts at LEFT edge of ordered_appointment_ids row, ends at RIGHT edge of appointments.id row
+    //   arrow points LEFT (←) into the appointments card
+    const refStart = left(document.getElementById('route-appt-ids'));
+    const refEnd   = right(document.getElementById('appt-id'));
+    svg.appendChild(makeCurve(refStart.x, refStart.y, refEnd.x, refEnd.y, '#c07a1a', true));
+    svg.appendChild(makeDot(refStart.x, refStart.y, '#c07a1a'));
+    svg.appendChild(arrowLeft(refEnd.x, refEnd.y, '#c07a1a'));
+  }
+
+  window.addEventListener('load', () => { drawConnectors(); });
+  window.addEventListener('resize', () => { drawConnectors(); });
+</script>
+</body>
+</html>

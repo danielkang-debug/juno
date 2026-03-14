@@ -10,10 +10,22 @@
 
 ## Data Schemas
 
+### users
+```json
+{
+  "id": "TEXT (UUID, PK)",
+  "email": "TEXT (UNIQUE, required, stored lowercase)",
+  "password_hash": "TEXT (required, werkzeug pbkdf2)",
+  "name": "TEXT (required)",
+  "created_at": "TEXT (ISO datetime)"
+}
+```
+
 ### patients
 ```json
 {
   "id": "TEXT (UUID, PK)",
+  "user_id": "TEXT (FK → users.id, scopes data to user)",
   "name": "TEXT (required)",
   "address": "TEXT (required, used for geocoding)",
   "lat": "REAL | NULL (cached from Nominatim)",
@@ -32,6 +44,7 @@
 ```json
 {
   "id": "TEXT (UUID, PK)",
+  "user_id": "TEXT (FK → users.id, scopes data to user)",
   "patient_id": "TEXT (FK → patients.id)",
   "date": "TEXT (ISO date YYYY-MM-DD)",
   "time": "TEXT (HH:MM)",
@@ -46,7 +59,8 @@
 ```json
 {
   "id": "TEXT (UUID, PK)",
-  "date": "TEXT (ISO date, UNIQUE — enables INSERT OR REPLACE)",
+  "user_id": "TEXT (FK → users.id, scopes data to user)",
+  "date": "TEXT (ISO date, UNIQUE per user — UNIQUE(user_id, date))",
   "ordered_appointment_ids": "TEXT (JSON-encoded array of appointment IDs)",
   "estimated_travel_minutes": "INTEGER (default 0)",
   "saved_at": "TEXT (ISO datetime)"
@@ -69,7 +83,7 @@
 ## Behavioral Rules
 
 - **Soft delete only:** DELETE `/api/patients/:id` sets `status='discharged'` — never removes rows from DB.
-- **Route upsert:** `POST /api/routes/optimize` uses `INSERT OR REPLACE` on `(date)` — idempotent. Re-optimizing a day overwrites the saved route.
+- **Route upsert:** `POST /api/routes/optimize` uses `INSERT OR REPLACE` on `(user_id, date)` — idempotent per user. Re-optimizing a day overwrites the saved route.
 - **Calendar month query:** `SELECT date, COUNT(*) FROM appointments WHERE date LIKE 'YYYY-MM-%' AND status != 'cancelled' GROUP BY date`
 - **GA alert threshold:** `gestational_age_weeks >= 40` triggers an alert. Surface prominently in Dashboard and Mothers view.
 - **Geocoding failure:** If Nominatim fails for a patient address, `lat/lon` remain NULL. Map renders without that pin. No server crash, no user-visible error beyond a console warning.
@@ -101,3 +115,4 @@ Layer 3 — Tools (tools/db.py, tools/route.py)
 | Date | Change | Files Affected |
 |---|---|---|
 | 2026-03-10 | Initial project constitution created | claude.md |
+| 2026-03-14 | Multi-user auth: users table, user_id isolation, Flask sessions, login/register UI | db.py, server.py, js/views/auth.js, js/api.js, js/main.js, js/state.js, js/i18n.js, styles.css, index.html |

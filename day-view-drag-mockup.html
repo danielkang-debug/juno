@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juno — Day View Drag Mockup</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        :root {
+            --sage-green: #A8BA9A;
+            --sage-light: #C4D1BB;
+            --sage-dark: #8E9F82;
+            --white: #FFFFFF;
+            --cream: #F9F8F4;
+            --grey-light: #F0F2ED;
+            --grey-mid: #D1D5CB;
+            --text-dark: #2C332A;
+            --text-muted: #6B7A66;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --danger: #C0392B;
+            --danger-light: #FDEDEC;
+            --danger-border: #E6B0AA;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--cream);
+            color: var(--text-dark);
+            padding: 1.5rem 2rem;
+        }
+
+        .preview-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            background: rgba(212,175,55,0.15);
+            border: 1px solid rgba(212,175,55,0.35);
+            border-radius: 4px;
+            padding: 0.2rem 0.65rem;
+            display: inline-block;
+            margin-bottom: 1rem;
+        }
+
+        /* ── Top bar ─────────────────────────────────── */
+        .top-bar {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .date-picker {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            padding: 0.55rem 1rem;
+            border: 1.5px solid var(--grey-mid);
+            border-radius: var(--radius-sm);
+            background: var(--white);
+            color: var(--text-dark);
+            cursor: pointer;
+        }
+
+        .btn-optimize {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 0.55rem 1.5rem;
+            border: none;
+            border-radius: var(--radius-sm);
+            background: var(--sage-green);
+            color: var(--white);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .btn-optimize:hover { background: var(--sage-dark); }
+
+        .route-summary {
+            margin-left: auto;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .route-summary strong {
+            color: var(--text-dark);
+            font-weight: 700;
+        }
+
+        /* ── Main layout ─────────────────────────────── */
+        .day-layout {
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            gap: 1.25rem;
+            min-height: 560px;
+        }
+
+        /* ── Map panel ───────────────────────────────── */
+        .map-panel {
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            border: 1px solid rgba(168,186,154,0.2);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+
+        #map { width: 100%; height: 100%; min-height: 560px; }
+
+        /* ── Appointment list panel ──────────────────── */
+        .apt-panel {
+            background: var(--white);
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(168,186,154,0.15);
+            box-shadow: 0 4px 20px rgba(168,186,154,0.08);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .apt-panel-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--grey-light);
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+        }
+
+        .apt-panel-header h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.15rem;
+        }
+
+        .apt-panel-header .count {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+
+        .apt-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.5rem 0;
+        }
+
+        /* ── Travel connector between cards ──────────── */
+        .travel-connector {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.35rem 1.25rem 0.35rem 2.5rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .travel-connector .line {
+            flex: 1;
+            height: 1px;
+            background: var(--grey-mid);
+        }
+
+        .travel-connector .travel-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.15rem 0.6rem;
+            border-radius: 20px;
+            background: var(--grey-light);
+            white-space: nowrap;
+            font-weight: 600;
+            font-size: 0.72rem;
+        }
+
+        .travel-connector .travel-badge svg {
+            width: 12px;
+            height: 12px;
+            fill: var(--text-muted);
+        }
+
+        /* ── Appointment card ────────────────────────── */
+        .apt-card {
+            display: flex;
+            align-items: stretch;
+            padding: 0.75rem 1.25rem;
+            gap: 0.85rem;
+            cursor: grab;
+            transition: background 0.15s, box-shadow 0.15s, border-color 0.25s;
+            border: 2px solid transparent;
+            border-radius: var(--radius-sm);
+            margin: 0 0.5rem;
+            user-select: none;
+        }
+
+        .apt-card:hover {
+            background: var(--grey-light);
+        }
+
+        .apt-card:active {
+            cursor: grabbing;
+        }
+
+        .apt-card.dragging {
+            background: var(--white);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            border-color: var(--sage-green);
+            z-index: 100;
+            opacity: 0.95;
+        }
+
+        .apt-card.drag-over-top {
+            border-top: 2px solid var(--sage-green);
+        }
+
+        .apt-card.drag-over-bottom {
+            border-bottom: 2px solid var(--sage-green);
+        }
+
+        /* Time-window violation (red) */
+        .apt-card.time-violation {
+            background: var(--danger-light);
+            border-color: var(--danger-border);
+        }
+
+        .apt-card.time-violation .apt-time {
+            color: var(--danger);
+        }
+
+        .apt-card.time-violation .violation-tag {
+            display: inline-flex;
+        }
+
+        .violation-tag {
+            display: none;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: var(--danger);
+            background: rgba(192,57,43,0.1);
+            padding: 0.1rem 0.45rem;
+            border-radius: 3px;
+            margin-left: 0.4rem;
+        }
+
+        /* Stop number */
+        .apt-stop {
+            display: flex;
+            align-items: flex-start;
+            padding-top: 0.15rem;
+        }
+
+        .stop-number {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--sage-green);
+            color: var(--white);
+            font-size: 0.8rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .apt-card.time-violation .stop-number {
+            background: var(--danger);
+        }
+
+        /* Card content */
+        .apt-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .apt-name {
+            font-size: 0.88rem;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .apt-time {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-top: 0.15rem;
+        }
+
+        .apt-address {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin-top: 0.2rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .apt-badges {
+            display: flex;
+            gap: 0.35rem;
+            margin-top: 0.3rem;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            padding: 0.1rem 0.45rem;
+            border-radius: 3px;
+        }
+
+        .badge-type {
+            background: rgba(168,186,154,0.25);
+            color: var(--sage-dark);
+        }
+
+        .badge-flex {
+            background: rgba(168,186,154,0.15);
+            color: var(--text-muted);
+            border: 1px dashed var(--sage-light);
+        }
+
+        .badge-window {
+            background: transparent;
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 0.68rem;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        /* Drag handle */
+        .drag-handle {
+            display: flex;
+            align-items: center;
+            padding: 0 0.15rem;
+            cursor: grab;
+            color: var(--grey-mid);
+            flex-shrink: 0;
+        }
+
+        .drag-handle:active { cursor: grabbing; }
+
+        .drag-handle svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* ── Footer / total ──────────────────────────── */
+        .apt-panel-footer {
+            padding: 0.85rem 1.25rem;
+            border-top: 1px solid var(--grey-light);
+            background: var(--cream);
+            border-radius: 0 0 var(--radius-md) var(--radius-md);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.82rem;
+        }
+
+        .total-travel {
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+
+        .total-travel strong {
+            font-size: 1rem;
+        }
+
+        .warnings-count {
+            font-weight: 600;
+            color: var(--danger);
+            font-size: 0.78rem;
+        }
+
+        /* ── Legend ───────────────────────────────────── */
+        .legend-bar {
+            display: flex;
+            gap: 1.5rem;
+            margin-top: 1rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .legend-bar .leg {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .leg-swatch {
+            width: 16px;
+            height: 10px;
+            border-radius: 2px;
+        }
+
+        .leg-swatch.ok { background: var(--sage-green); }
+        .leg-swatch.warn { background: var(--danger); }
+
+        /* ── Drag placeholder ────────────────────────── */
+        .drag-placeholder {
+            height: 60px;
+            margin: 0 0.5rem;
+            border: 2px dashed var(--sage-light);
+            border-radius: var(--radius-sm);
+            background: rgba(168,186,154,0.05);
+        }
+
+        /* Numbered markers on map */
+        .numbered-marker {
+            background: var(--sage-green);
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            border: 2px solid white;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+
+        .numbered-marker.violated {
+            background: var(--danger);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="preview-label">Interactive Mockup — Drag Appointments to Reorder</div>
+
+    <!-- Top bar -->
+    <div class="top-bar">
+        <input type="date" class="date-picker" value="2026-03-13">
+        <button class="btn-optimize" onclick="autoOptimize()">Optimize Route</button>
+        <div class="route-summary">
+            Total travel: <strong id="total-travel-top">—</strong>
+        </div>
+    </div>
+
+    <!-- Main grid -->
+    <div class="day-layout">
+        <!-- Map -->
+        <div class="map-panel">
+            <div id="map"></div>
+        </div>
+
+        <!-- Appointment list -->
+        <div class="apt-panel">
+            <div class="apt-panel-header">
+                <h2>Route</h2>
+                <span class="count" id="apt-count"></span>
+            </div>
+
+            <div class="apt-list" id="apt-list">
+                <!-- Cards rendered by JS -->
+            </div>
+
+            <div class="apt-panel-footer">
+                <div class="total-travel">
+                    Total: <strong id="total-travel">—</strong>
+                </div>
+                <div class="warnings-count" id="warnings-count"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="legend-bar">
+        <div class="leg"><div class="leg-swatch ok"></div> Within time window</div>
+        <div class="leg"><div class="leg-swatch warn"></div> Outside time window</div>
+        <div class="leg">⋮⋮ Drag handle — reorder visits</div>
+    </div>
+
+<script>
+    // ══════════════════════════════════════════════════════
+    // DATA
+    // ══════════════════════════════════════════════════════
+    const appointments = [
+        {
+            id: '1',
+            patient_name: 'Lena Bergmann',
+            visit_type: 'prenatal',
+            kind: 'fixed',
+            time: '08:00',
+            duration_minutes: 60,
+            address: 'Musterstraße 12, Berlin',
+            lat: 52.5244, lon: 13.4105,
+            // Fixed = no window, must be at this time
+            window_start: '08:00',
+            window_end: '09:00',
+        },
+        {
+            id: '2',
+            patient_name: 'Maja Hoffmann',
+            visit_type: 'postnatal',
+            kind: 'flexible',
+            time: '10:00',
+            duration_minutes: 45,
+            address: 'Schillerplatz 3, Berlin',
+            lat: 52.4740, lon: 13.3290,
+            window_start: '09:00',
+            window_end: '13:00',
+        },
+        {
+            id: '3',
+            patient_name: 'Sophie Richter',
+            visit_type: 'prenatal',
+            kind: 'flexible',
+            time: '11:00',
+            duration_minutes: 60,
+            address: 'Alexanderplatz 1, Berlin',
+            lat: 52.5219, lon: 13.4132,
+            window_start: '10:00',
+            window_end: '14:00',
+        },
+        {
+            id: '4',
+            patient_name: 'Clara Neumann',
+            visit_type: 'postnatal',
+            kind: 'flexible',
+            time: '13:00',
+            duration_minutes: 50,
+            address: 'Potsdamer Str. 88, Berlin',
+            lat: 52.4962, lon: 13.3617,
+            window_start: '12:00',
+            window_end: '15:30',
+        },
+        {
+            id: '5',
+            patient_name: 'Anna Vogt',
+            visit_type: 'prenatal',
+            kind: 'fixed',
+            time: '15:30',
+            duration_minutes: 45,
+            address: 'Kurfürstendamm 22, Berlin',
+            lat: 52.5042, lon: 13.3280,
+            window_start: '15:30',
+            window_end: '16:15',
+        },
+    ];
+
+    // Mutable order — indices into appointments array
+    let order = appointments.map((_, i) => i);
+
+    // ══════════════════════════════════════════════════════
+    // HAVERSINE DISTANCE + TRAVEL TIME
+    // ══════════════════════════════════════════════════════
+    function haversineKm(lat1, lon1, lat2, lon2) {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2)**2 +
+                  Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) *
+                  Math.sin(dLon/2)**2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    function travelMinutes(a, b) {
+        const km = haversineKm(a.lat, a.lon, b.lat, b.lon);
+        // Assume average 30 km/h city driving
+        return Math.round(km / 30 * 60);
+    }
+
+    // ══════════════════════════════════════════════════════
+    // TIME HELPERS
+    // ══════════════════════════════════════════════════════
+    function timeToMinutes(hhmm) {
+        const [h, m] = hhmm.split(':').map(Number);
+        return h * 60 + m;
+    }
+
+    function minutesToTime(mins) {
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    }
+
+    // Compute actual start times based on order, travel, and appointment durations.
+    // First appointment keeps its window_start.
+    function computeSchedule() {
+        const schedule = [];
+        let currentTime = 0;
+
+        for (let i = 0; i < order.length; i++) {
+            const apt = appointments[order[i]];
+            let startMin;
+
+            if (i === 0) {
+                startMin = timeToMinutes(apt.window_start);
+            } else {
+                const prev = appointments[order[i-1]];
+                const prevEnd = schedule[i-1].startMin + prev.duration_minutes;
+                const travel = travelMinutes(prev, apt);
+                const earliestArrival = prevEnd + travel;
+                // Cannot start before window_start
+                startMin = Math.max(earliestArrival, timeToMinutes(apt.window_start));
+            }
+
+            const endMin = startMin + apt.duration_minutes;
+            const windowEndMin = timeToMinutes(apt.window_end);
+            // Violation: the appointment START is past the window_end (meaning we can't complete it in time)
+            // Or the end goes past the window_end
+            const violated = endMin > windowEndMin;
+
+            schedule.push({ apt, startMin, endMin, violated, index: order[i] });
+        }
+        return schedule;
+    }
+
+    // ══════════════════════════════════════════════════════
+    // RENDER APPOINTMENT LIST
+    // ══════════════════════════════════════════════════════
+    const listEl = document.getElementById('apt-list');
+    const visitLabels = { prenatal: 'Pränatal', postnatal: 'Postnatal', birth: 'Geburt' };
+
+    function render() {
+        const schedule = computeSchedule();
+        listEl.innerHTML = '';
+
+        let totalTravelMin = 0;
+        let warningCount = 0;
+
+        schedule.forEach((entry, i) => {
+            const { apt, startMin, endMin, violated } = entry;
+
+            // Travel connector (between cards)
+            if (i > 0) {
+                const prev = schedule[i-1];
+                const travel = travelMinutes(appointments[order[i-1]], apt);
+                const dist = haversineKm(
+                    appointments[order[i-1]].lat, appointments[order[i-1]].lon,
+                    apt.lat, apt.lon
+                ).toFixed(1);
+                totalTravelMin += travel;
+
+                const connector = document.createElement('div');
+                connector.className = 'travel-connector';
+                connector.innerHTML = `
+                    <div class="line"></div>
+                    <div class="travel-badge">
+                        <svg viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>
+                        ${travel} min · ${dist} km
+                    </div>
+                    <div class="line"></div>
+                `;
+                listEl.appendChild(connector);
+            }
+
+            if (violated) warningCount++;
+
+            // Card
+            const card = document.createElement('div');
+            card.className = `apt-card${violated ? ' time-violation' : ''}`;
+            card.draggable = true;
+            card.dataset.orderIdx = i;
+
+            const windowLabel = apt.kind === 'flexible'
+                ? `<span class="badge badge-window">${apt.window_start}–${apt.window_end}</span>` : '';
+
+            card.innerHTML = `
+                <div class="drag-handle">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="9" cy="6" r="1.5"/>
+                        <circle cx="15" cy="6" r="1.5"/>
+                        <circle cx="9" cy="12" r="1.5"/>
+                        <circle cx="15" cy="12" r="1.5"/>
+                        <circle cx="9" cy="18" r="1.5"/>
+                        <circle cx="15" cy="18" r="1.5"/>
+                    </svg>
+                </div>
+                <div class="apt-stop">
+                    <div class="stop-number">${i + 1}</div>
+                </div>
+                <div class="apt-info">
+                    <div class="apt-name">
+                        ${apt.patient_name}
+                        <span class="violation-tag">Outside window</span>
+                    </div>
+                    <div class="apt-time">
+                        ${minutesToTime(startMin)}–${minutesToTime(endMin)}
+                        ${apt.kind === 'fixed' ? ' · Fixed' : ''}
+                    </div>
+                    <div class="apt-address">${apt.address}</div>
+                    <div class="apt-badges">
+                        <span class="badge badge-type">${visitLabels[apt.visit_type]}</span>
+                        ${apt.kind === 'flexible' ? '<span class="badge badge-flex">Flex</span>' : ''}
+                        ${windowLabel}
+                    </div>
+                </div>
+            `;
+
+            // Drag events
+            card.addEventListener('dragstart', onDragStart);
+            card.addEventListener('dragend', onDragEnd);
+            card.addEventListener('dragover', onDragOver);
+            card.addEventListener('drop', onDrop);
+            card.addEventListener('dragenter', onDragEnter);
+            card.addEventListener('dragleave', onDragLeave);
+
+            listEl.appendChild(card);
+        });
+
+        // Update totals
+        const totalStr = `${totalTravelMin} min`;
+        document.getElementById('total-travel').textContent = totalStr;
+        document.getElementById('total-travel-top').textContent = totalStr;
+        document.getElementById('apt-count').textContent = `${order.length} Termine`;
+
+        const warnEl = document.getElementById('warnings-count');
+        if (warningCount > 0) {
+            warnEl.textContent = `⚠ ${warningCount} outside window`;
+        } else {
+            warnEl.textContent = '✓ All within time windows';
+            warnEl.style.color = 'var(--sage-dark)';
+        }
+
+        // Re-render map markers + route
+        renderMap(schedule);
+    }
+
+    // ══════════════════════════════════════════════════════
+    // DRAG-AND-DROP
+    // ══════════════════════════════════════════════════════
+    let dragIdx = null;
+
+    function onDragStart(e) {
+        dragIdx = parseInt(e.currentTarget.dataset.orderIdx);
+        e.currentTarget.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        // Needed for Firefox
+        e.dataTransfer.setData('text/plain', dragIdx);
+    }
+
+    function onDragEnd(e) {
+        e.currentTarget.classList.remove('dragging');
+        document.querySelectorAll('.apt-card').forEach(c => {
+            c.classList.remove('drag-over-top', 'drag-over-bottom');
+        });
+        dragIdx = null;
+    }
+
+    function onDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    }
+
+    function onDragEnter(e) {
+        e.preventDefault();
+        const targetIdx = parseInt(e.currentTarget.dataset.orderIdx);
+        if (targetIdx === dragIdx) return;
+
+        document.querySelectorAll('.apt-card').forEach(c => {
+            c.classList.remove('drag-over-top', 'drag-over-bottom');
+        });
+
+        if (targetIdx < dragIdx) {
+            e.currentTarget.classList.add('drag-over-top');
+        } else {
+            e.currentTarget.classList.add('drag-over-bottom');
+        }
+    }
+
+    function onDragLeave(e) {
+        e.currentTarget.classList.remove('drag-over-top', 'drag-over-bottom');
+    }
+
+    function onDrop(e) {
+        e.preventDefault();
+        const targetIdx = parseInt(e.currentTarget.dataset.orderIdx);
+        if (targetIdx === dragIdx || dragIdx === null) return;
+
+        // Reorder
+        const [moved] = order.splice(dragIdx, 1);
+        order.splice(targetIdx, 0, moved);
+
+        render();
+    }
+
+    // ══════════════════════════════════════════════════════
+    // AUTO OPTIMIZE — nearest-neighbor
+    // ══════════════════════════════════════════════════════
+    function autoOptimize() {
+        // Simple nearest-neighbor from the first appointment
+        const remaining = new Set(order);
+        const newOrder = [];
+        let current = order[0];
+        remaining.delete(current);
+        newOrder.push(current);
+
+        while (remaining.size > 0) {
+            let nearest = null;
+            let nearestDist = Infinity;
+            for (const idx of remaining) {
+                const d = haversineKm(
+                    appointments[current].lat, appointments[current].lon,
+                    appointments[idx].lat, appointments[idx].lon
+                );
+                if (d < nearestDist) {
+                    nearestDist = d;
+                    nearest = idx;
+                }
+            }
+            newOrder.push(nearest);
+            remaining.delete(nearest);
+            current = nearest;
+        }
+
+        order = newOrder;
+        render();
+    }
+
+    // ══════════════════════════════════════════════════════
+    // MAP
+    // ══════════════════════════════════════════════════════
+    const map = L.map('map').setView([52.50, 13.38], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    let mapMarkers = [];
+    let routeLine = null;
+
+    function renderMap(schedule) {
+        // Clear
+        mapMarkers.forEach(m => map.removeLayer(m));
+        mapMarkers = [];
+        if (routeLine) map.removeLayer(routeLine);
+
+        const latlngs = [];
+
+        schedule.forEach((entry, i) => {
+            const { apt, violated } = entry;
+            const icon = L.divIcon({
+                className: '',
+                html: `<div class="numbered-marker${violated ? ' violated' : ''}">${i+1}</div>`,
+                iconSize: [30, 30],
+                iconAnchor: [15, 15],
+            });
+
+            const marker = L.marker([apt.lat, apt.lon], { icon }).addTo(map);
+            marker.bindPopup(`<b>${apt.patient_name}</b><br>${apt.address}`);
+            mapMarkers.push(marker);
+            latlngs.push([apt.lat, apt.lon]);
+        });
+
+        if (latlngs.length > 1) {
+            routeLine = L.polyline(latlngs, {
+                color: '#8E9F82',
+                weight: 3,
+                dashArray: '8 6',
+                opacity: 0.8,
+            }).addTo(map);
+        }
+
+        // Fit bounds
+        if (latlngs.length > 0) {
+            map.fitBounds(latlngs, { padding: [40, 40] });
+        }
+    }
+
+    // ══════════════════════════════════════════════════════
+    // INIT
+    // ══════════════════════════════════════════════════════
+    render();
+</script>
+
+</body>
+</html>

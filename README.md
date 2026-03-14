@@ -5,6 +5,8 @@ A day-planning tool for self-employed midwives who do home visits. Juno solves t
 1. **Calendar** — schedule visits with patients across the week and month
 2. **Routes** — visualize where patients live on a map and compute the optimal visit order to minimize travel time
 
+The UI is bilingual (German/English) and designed around a fictional midwife named **Clara**.
+
 ---
 
 ## Demo
@@ -22,23 +24,23 @@ A day-planning tool for self-employed midwives who do home visits. Juno solves t
 git clone https://github.com/danielkang-debug/juno.git
 cd juno
 
-# 2. Install the only dependency
+# 2. Install dependencies
 pip3 install flask
 
 # 3. Start the server
 python3 tools/server.py
 ```
 
-Open **http://localhost:5001** in your browser.
+Open **http://localhost:5001** in your browser. The password is `Juno2026`.
 
-On first boot the app seeds 6 fictional patients and geocodes their addresses via OpenStreetMap. This takes ~6 seconds due to API rate limiting. Progress is logged to the terminal.
+On first boot the app seeds 6 fictional patients (located across Germany) and geocodes their addresses via OpenStreetMap. This takes ~6 seconds due to API rate limiting. Progress is logged to the terminal.
 
 ---
 
 ## What the App Does
 
 ### Dashboard
-- Live metrics: active births, today's visits, GA alerts (patients ≥ 40 weeks)
+- Live metrics: active births, today's visits, GA alerts (patients >= 40 weeks)
 - Week strip showing appointment load per day
 - Quick actions: plan route, view GA alerts, navigate to patients
 
@@ -49,17 +51,17 @@ On first boot the app seeds 6 fictional patients and geocodes their addresses vi
 - Add, edit, or cancel appointments from the day detail view
 
 ### Routes
-- Set a **home starting point** — address is geocoded once and persisted across sessions
+- Set a **home starting point** — address is geocoded once and persisted in `localStorage`
 - Date picker to select any day
-- **Optimize Route** button runs a nearest-neighbor TSP heuristic to find the most efficient visit order, then fetches the actual road path from OSRM
-- Full **round trip**: route runs home → appointments → home with real road geometry drawn on the map
-- Ordered stop list shows real drive times and distances per leg (from OSRM, falls back to Haversine estimate if OSRM is unavailable)
-- **Drag-to-reorder** stops manually — map route redraws instantly and the new order is auto-saved
+- **Optimize Route** runs a nearest-neighbor TSP heuristic, then fetches actual road paths from OSRM
+- Full **round trip**: home -> appointments -> home with real road geometry drawn on the map
+- Ordered stop list shows real drive times and distances per leg (falls back to Haversine estimate if OSRM is unavailable)
+- **Drag-to-reorder** stops manually — map redraws instantly, new order auto-saved to DB
 - Total round-trip travel time shown in the header
 
 ### Mothers
 - Full patient list with status, gestational age, due date, phone
-- GA alerts (≥ 40 weeks) highlighted in red
+- GA alerts (>= 40 weeks) highlighted in red
 - Add new patients — address is automatically geocoded and pinned on the map
 - Edit patient details or discharge (soft delete)
 
@@ -67,44 +69,119 @@ On first boot the app seeds 6 fictional patients and geocodes their addresses vi
 
 ## Architecture
 
-The project follows the **B.L.A.S.T. protocol** and **A.N.T. 3-layer architecture**, which separates concerns to keep business logic deterministic and the system easy to extend.
+### The A.N.T. 3-Layer Model
+
+The backend follows a strict separation of concerns:
+
+| Layer | Files | Responsibility |
+|---|---|---|
+| **1 — Architecture** | `architecture/*.md` | SOPs: define goals, inputs, logic, edge cases in plain English. Updated before code changes. |
+| **2 — Navigation** | `tools/server.py` | Flask routes. Receives requests, delegates to Layer 3 tools, returns JSON. Contains zero business logic. |
+| **3 — Tools** | `tools/db.py`, `tools/route.py` | Deterministic, independently testable Python functions. No Flask imports. No shared state between files. |
+
+This means:
+- **All SQL** lives in `db.py`. If you need a new query, it goes here.
+- **All geography** (Haversine, TSP, geocoding, OSRM calls) lives in `route.py`. If you need a new geo computation, it goes here.
+- **`server.py`** is glue — it validates input, calls `db` and `route` functions in the right order, and returns the result.
+
+### Frontend Architecture
+
+The frontend is a **vanilla JS single-page application** using ES modules (no build step, no bundler). `index.html` loads `js/main.js` as the entry point.
+
+```
+js/
+├── main.js              # Entry point. DOMContentLoaded → router.init() → navigateTo('dashboard')
+├── state.js             # Global mutable state (currentView, routeDate, homeLocation, lang)
+├── router.js            # navigateTo(view, params) — hash-based routing, popstate, map cleanup
+├── api.js               # Fetch wrappers: api.patients.list(), api.routes.optimize(), etc.
+├── i18n.js              # DE/EN translations. t('key') returns localized string.
+├── map.js               # Leaflet singleton: init, addPin, drawRoute, destroy
+├── utils.js             # today(), formatDate(), showToast(), haversine(), escapeHtml()
+│
+├── views/
+│   ├── index.js         # Re-exports all views as a { dashboard, calendar, routes, mothers } map
+│   ├── dashboard.js     # Metrics, week strip, quick actions
+│   ├── calendar.js      # Month grid + day detail with appointment cards
+│   ├── routes.js        # Home start, date picker, optimize, map + draggable stop list
+│   └── mothers.js       # Patient table with edit/discharge
+│
+├── modals/
+│   ├── index.js         # Re-exports { patientModal, appointmentModal }
+│   ├── patient.js       # Add/edit patient form (with inline geocoding feedback)
+│   └── appointment.js   # Add/edit/cancel appointment form
+│
+└── components/
+    ├── index.js         # Re-exports shared components
+    ├── segmented-control.js  # Reusable segmented toggle (used for visit-type selection)
+    └── ui.js            # Loading spinner, empty-state rendering
+```
+
+**How routing works:** `router.navigateTo('calendar')` sets `state.currentView`, pushes to `history`, calls `views.calendar.render()` which injects HTML into `#app-view` via `innerHTML`, then wires up event listeners. When leaving the Routes view, `mapManager.destroy()` is called to tear down the Leaflet instance (prevents "container already initialized" crash on return).
+
+**How the API layer works:** `api.js` exports a namespaced object — `api.patients.list()`, `api.appointments.byDate('2026-03-14')`, etc. All methods are `async` and throw an `Error` with the server's message on non-2xx responses. Views `catch` and display errors via `showToast()`.
+
+### Data Flow Example: Optimizing a Route
+
+```
+User clicks "Optimize Route"
+  → views/routes.js calls api.routes.optimize(date, lat, lon, address)
+    → POST /api/routes/optimize  (server.py)
+      → db.list_appointments_by_date(date)                    (db.py)
+      → route_module.optimize_route(appointments, start)       (route.py)
+        ├─ Nearest-neighbor TSP via Haversine                  (pure math)
+        └─ OSRM API call for real road geometry                (HTTP)
+      → db.save_route(date, ordered_ids, total_minutes)        (db.py)
+    ← { ordered_appointments, legs, road_geometry, ... }
+  → views/routes.js calls mapManager.drawRoute() + renders stop list
+```
+
+---
+
+## Project Structure
 
 ```
 juno/
-├── claude.md              # Project Constitution (schemas, rules, invariants)
-├── .env                   # Environment variables (API keys for future integrations)
+├── index.html             # SPA shell (sidebar nav, Leaflet CDN, prototype banner)
+├── styles.css             # Full design system + all component styles
+├── js/                    # Frontend SPA (ES modules, no build step)
+│   ├── main.js            # Entry point
+│   ├── state.js           # Global state
+│   ├── router.js          # Hash-based SPA routing
+│   ├── api.js             # Backend fetch wrappers
+│   ├── i18n.js            # DE/EN translations (~160 keys)
+│   ├── map.js             # Leaflet map manager
+│   ├── utils.js           # Shared utilities
+│   ├── views/             # One file per view (dashboard, calendar, routes, mothers)
+│   ├── modals/            # Patient + appointment modals
+│   └── components/        # Reusable UI components (segmented control, spinners)
 │
-├── architecture/          # Layer 1 — SOPs (the "why" and "how" for each system)
-│   ├── patients.md
-│   ├── calendar.md
-│   ├── map-routing.md
-│   └── api.md
+├── tools/                 # Python backend
+│   ├── server.py          # Layer 2: Flask API + static file serving (port 5001)
+│   ├── db.py              # Layer 3: All SQLite CRUD. No Flask imports.
+│   └── route.py           # Layer 3: Haversine, TSP, Nominatim geocoding, OSRM. No Flask imports.
 │
-├── tools/                 # Layer 3 — Deterministic Python scripts
-│   ├── db.py              # All SQL. No Flask imports.
-│   ├── route.py           # All geography. No Flask, no DB imports.
-│   └── server.py          # Layer 2: Flask routing. Calls db + route tools.
-│
-├── index.html             # SPA shell (sidebar, nav, Leaflet CDN)
-├── styles.css             # Design system + component styles
-├── script.js              # Full SPA frontend
+├── architecture/          # Layer 1: SOPs (plain-English specs for each subsystem)
+│   ├── patients.md        # Patient CRUD rules, geocoding policy, soft-delete
+│   ├── calendar.md        # Calendar rendering, appointment lifecycle
+│   ├── map-routing.md     # TSP algorithm, OSRM integration, drag reorder
+│   └── api.md             # Endpoint contracts, error shapes, status codes
 │
 ├── assets/
 │   ├── logo.png
 │   └── hero.png
 │
-├── task_plan.md           # Phase checklists
-├── findings.md            # Research notes, constraints, API documentation
-└── progress.md            # Running log of what was built, errors, fixes
+├── claude.md              # Project Constitution (schemas, invariants, behavioral rules)
+├── Procfile               # Railway deployment: gunicorn command
+├── requirements.txt       # Python deps: flask, gunicorn, requests
+├── package.json           # Optional: `npx serve` for static-only dev
+├── .gitignore             # Excludes juno.db, .env, __pycache__, .claude/
+│
+├── task_plan.md           # Phase checklists (build planning)
+├── findings.md            # Research notes, API docs, constraints
+└── progress.md            # Running log of what was built
 ```
 
-### The 3 Layers
-
-| Layer | Files | Responsibility |
-|---|---|---|
-| 1 — Architecture | `architecture/*.md` | SOPs: define goals, inputs, logic, edge cases in plain English. Updated before code changes. |
-| 2 — Navigation | `tools/server.py` | Flask routes. Receives requests, calls Layer 3 tools in the right order, returns responses. Contains no business logic. |
-| 3 — Tools | `tools/db.py`, `tools/route.py` | Deterministic, independently testable Python functions. No shared state. |
+Files **not** committed: `juno.db` (SQLite database), `.env` (environment variables).
 
 ---
 
@@ -112,28 +189,33 @@ juno/
 
 | Concern | Technology | Notes |
 |---|---|---|
-| Backend | Python 3 + Flask | Single server, port 5001 |
-| Database | SQLite | `juno.db` in project root, never committed |
-| Frontend | Vanilla JS + HTML + CSS | No build step, no npm |
-| Map | Leaflet.js v1.9.4 + OpenStreetMap | Free, no API key. Designed to swap to Google Maps later. |
-| Geocoding | Nominatim (OpenStreetMap) | Free, 1 req/sec rate limit, results cached in SQLite |
-| Route optimization | Nearest-neighbor TSP heuristic | Pure Python, Haversine formula, O(n²) |
-| Road routing | OSRM demo API | Free, no API key. Returns real road geometry + drive times. Falls back to Haversine if unavailable. |
+| Backend | Python 3.9+ / Flask | Single server, port 5001. Serves API + static files. |
+| Database | SQLite | `juno.db` created on first run, never committed |
+| Frontend | Vanilla JS (ES modules) | No npm install needed, no bundler, no transpilation |
+| Map | Leaflet.js 1.9.4 + OpenStreetMap tiles | Free, no API key. CDN-loaded. |
+| Geocoding | Nominatim (OpenStreetMap) | Free, 1 req/sec, results cached in SQLite |
+| Route optimization | Nearest-neighbor TSP | Pure Python, Haversine distance, O(n^2) |
+| Road routing | OSRM demo API | Returns real road geometry + drive times. Degrades gracefully. |
+| i18n | Custom `i18n.js` | German default, English toggle. ~160 translation keys. |
+| Deployment | Railway (optional) | Gunicorn via Procfile, env-based DB path |
 
 ---
 
 ## Database Schema
 
+Three tables. All IDs are UUIDs. All dates/times are ISO strings.
+
 ### `patients`
 | Column | Type | Notes |
 |---|---|---|
-| id | TEXT | UUID primary key |
+| id | TEXT (PK) | UUID |
 | name | TEXT | Required |
-| address | TEXT | Required — used for geocoding |
+| address | TEXT | Required — geocoded on create/update |
 | lat / lon | REAL | Cached from Nominatim. NULL until geocoded. |
-| phone | TEXT | |
-| gestational_age_weeks / days | INTEGER | GA alert fires at ≥ 40 weeks |
-| due_date | TEXT | ISO date |
+| phone | TEXT | Default `''` |
+| gestational_age_weeks | INTEGER | GA alert fires at >= 40 |
+| gestational_age_days | INTEGER | |
+| due_date | TEXT | ISO date (YYYY-MM-DD) |
 | notes | TEXT | |
 | status | TEXT | `active` / `postpartum` / `discharged` |
 | created_at | TEXT | ISO datetime |
@@ -141,8 +223,8 @@ juno/
 ### `appointments`
 | Column | Type | Notes |
 |---|---|---|
-| id | TEXT | UUID primary key |
-| patient_id | TEXT | FK → patients.id |
+| id | TEXT (PK) | UUID |
+| patient_id | TEXT (FK) | References patients.id |
 | date | TEXT | ISO date |
 | time | TEXT | HH:MM |
 | visit_type | TEXT | `prenatal` / `birth` / `postnatal` |
@@ -153,127 +235,98 @@ juno/
 ### `routes`
 | Column | Type | Notes |
 |---|---|---|
-| id | TEXT | UUID primary key |
-| date | TEXT | UNIQUE — enables `INSERT OR REPLACE` (idempotent) |
-| ordered_appointment_ids | TEXT | JSON array of appointment IDs in optimized order |
-| estimated_travel_minutes | INTEGER | Total estimated transit time |
+| id | TEXT (PK) | UUID |
+| date | TEXT (UNIQUE) | One route per day. `INSERT OR REPLACE` makes saves idempotent. |
+| ordered_appointment_ids | TEXT | JSON array of appointment IDs in visit order |
+| estimated_travel_minutes | INTEGER | Total transit time |
 | saved_at | TEXT | ISO datetime |
 
 ---
 
 ## API Reference
 
-All endpoints return JSON. Errors follow `{"error": "message"}` with the appropriate HTTP status.
+All endpoints return JSON. Errors: `{"error": "message"}` with appropriate HTTP status.
 
 ### Patients
 ```
-GET    /api/patients                   List active + postpartum patients
-POST   /api/patients                   Create patient (geocodes address inline)
-PUT    /api/patients/<id>              Update patient (re-geocodes if address changed)
-DELETE /api/patients/<id>              Soft delete (sets status = 'discharged')
+GET    /api/patients                   → [{id, name, address, lat, lon, ...}]
+POST   /api/patients                   → 201 {patient}      Body: {name, address, ...}
+PUT    /api/patients/<id>              → {patient}           Body: {fields to update}
+DELETE /api/patients/<id>              → {ok: true}          Soft delete (status → discharged)
 ```
 
 ### Appointments
 ```
-GET    /api/appointments?date=YYYY-MM-DD    Appointments for a day (joined with patient data)
-GET    /api/appointments?month=YYYY-MM      Appointment count per day for a month
-POST   /api/appointments                    Create appointment
-PUT    /api/appointments/<id>               Update appointment
-DELETE /api/appointments/<id>               Cancel appointment
+GET    /api/appointments?date=YYYY-MM-DD   → [{id, patient_id, patient_name, time, ...}]
+GET    /api/appointments?month=YYYY-MM     → [{date, count}]    For calendar rendering
+POST   /api/appointments                   → 201 {appointment}  Body: {patient_id, date, time, visit_type}
+PUT    /api/appointments/<id>              → {appointment}       Body: {fields to update}
+DELETE /api/appointments/<id>              → {ok: true}          Sets status → cancelled
 ```
 
 ### Routes
 ```
-POST   /api/routes/optimize    Body: {date, start_lat?, start_lon?, start_address?}. Optimize + save route. Returns ordered list + legs + road_geometry.
-POST   /api/routes/save        Body: {date, ordered_appointment_ids, estimated_travel_minutes}. Save a manually reordered route.
-GET    /api/routes/<date>      Get previously saved route for a date.
-GET    /api/geocode?address=   Geocode an address. Returns {lat, lon, address}.
+POST   /api/routes/optimize   → {ordered_appointments, legs, total_travel_minutes, road_geometry}
+                                 Body: {date, start_lat?, start_lon?, start_address?}
+POST   /api/routes/save       → {ok: true}
+                                 Body: {date, ordered_appointment_ids, estimated_travel_minutes}
+GET    /api/routes/<date>     → {id, date, ordered_appointment_ids, ...} or 404
+```
+
+### Geocoding
+```
+GET    /api/geocode?address=<string>   → {lat, lon, address} or 422
 ```
 
 ---
 
-## Route Optimization
+## Route Optimization — How It Works
 
-Route planning is a two-step process:
-
-### Step 1 — Visit order (TSP, backend)
-A **nearest-neighbor TSP heuristic** determines which patient to visit in which order:
-
-1. Take all appointments for the day where the patient has a geocoded address
-2. If a home starting point is set, pick the nearest appointment to home as the first stop
-3. Greedily pick the nearest unvisited patient (by Haversine straight-line distance) until all are visited
-4. Append any ungeocodable patients at the end in time order
+### Step 1 — Visit order (TSP, `tools/route.py`)
+1. Gather all appointments for the day where the patient has lat/lon
+2. If a home starting point is set, pick the nearest appointment to home first
+3. Greedily pick the nearest unvisited patient by Haversine distance until all are visited
+4. Append ungeocodable patients at the end in time order
 5. Append a return leg back to home
 
-Haversine is fast and good enough as an ordering heuristic — road distances are roughly proportional to straight-line distances.
-
 ### Step 2 — Road geometry (OSRM)
-After the order is determined, a single call is made to the **OSRM demo API** with all waypoints. OSRM returns:
-- The actual road path as a GeoJSON LineString (drawn on the Leaflet map)
-- Real drive durations and distances per leg (replaces the Haversine estimates in the stop list)
+A single call to the OSRM demo API with all waypoints returns:
+- The actual road path as polyline coordinates (drawn on the map)
+- Real drive durations and distances per leg
 
-If OSRM is unavailable the app falls back to Haversine estimates and straight-line polylines — no crash, no user-visible error.
+If OSRM is unavailable, the app falls back to Haversine estimates and straight-line polylines. No crash, no user-visible error.
 
 ### Manual reorder
-After optimization the midwife can drag stops up or down. The map redraws with straight lines (no OSRM call on drag to avoid latency) and the new order is saved to the DB immediately.
+After optimization, the user can drag stops up or down. The map redraws with straight lines (no OSRM call on drag) and the new order is saved to the DB immediately.
 
-### Why not a real TSP solver?
-Nearest-neighbor is ~20% suboptimal in the worst case but is deterministic, instant for n < 20, and dependency-free. A solver like Google OR-Tools can be dropped into `tools/route.py` later without touching any other file.
+### Why nearest-neighbor instead of a real solver?
+It's ~20% suboptimal in the worst case but is deterministic, instant for n < 20, and has zero dependencies. A proper solver (e.g. Google OR-Tools) can be dropped into `route.py` later without changing any other file.
 
 ---
 
 ## Geocoding
 
-Patient addresses are geocoded using the **Nominatim API** (free, powered by OpenStreetMap):
-
-- Called once when a patient is created or their address is updated
-- Result (`lat`, `lon`) is cached in the SQLite DB — Nominatim is never called twice for the same address
-- Rate limit: 1 request/second (enforced by `time.sleep(1.0)` in `tools/route.py`)
-- If geocoding fails: `lat`/`lon` remain `NULL`, the patient still appears in lists but without a map pin
-
-### Swapping to Google Maps
-All map logic is isolated in `mapManager` in `script.js`. To swap Leaflet for Google Maps:
-1. Replace CDN links in `index.html`
-2. Reimplement `mapManager.init()`, `.addPin()`, `.drawRoute()`, `.destroy()`
-3. No backend changes needed
+- **When:** called once on patient create or address update
+- **How:** Nominatim API (OpenStreetMap), 1 req/sec rate limit enforced by `time.sleep(1.0)` in `route.py`
+- **Caching:** result stored in SQLite (`lat`/`lon` columns). Nominatim is never called twice for the same address.
+- **Failure:** `lat`/`lon` remain NULL. Patient appears in lists but not on the map. No crash.
 
 ---
 
-## Frontend Architecture
+## Internationalization (i18n)
 
-`script.js` is a single-file SPA organized into clearly named modules:
+The app defaults to **German** and supports an **English** toggle via a button in the prototype banner.
 
-```
-CONFIG          Constants (map center, route color)
-state           Global mutable state (current view, selected date, home location)
-api             Fetch wrappers + namespaced endpoint calls (patients, appointments, routes, geocode)
-router          navigateTo(view, params) — wires nav clicks, destroys map on leave
-utils           today(), formatDate(), showToast(), haversine(), travelMinutes(), confirm(), escapeHtml()
-mapManager      Leaflet singleton: init(), addPin(), addHomePin(), drawRoute(apts, home, roadGeometry), clearPins(), destroy()
-views
-  └─ dashboard  Metrics, week strip, quick actions, Add Mother shortcut
-  └─ calendar   Month grid + day detail with appointment cards
-  └─ routeView  Home start, date picker, optimize button, map + draggable stop list
-      ├─ _recalcLegs()         Client-side Haversine leg recalculation (used on drag)
-      ├─ _renderRouteResult()  Renders map + stop list; accepts optional OSRM road geometry
-      └─ _attachDragHandlers() HTML5 drag-and-drop with event delegation on the list card
-  └─ mothers    Patient table with edit/discharge
-modals
-  └─ patient    Add/edit patient form (with inline geocoding feedback)
-  └─ appointment Add/edit/cancel appointment form
-init            DOMContentLoaded → router.init() → navigateTo('dashboard')
-```
-
-**Key implementation rules:**
-- `mapManager.destroy()` is called every time the user navigates away from the Routes view (prevents Leaflet "container already initialized" crash on return)
-- All API calls are `async/await` — views show a loading spinner while fetching
-- `utils.escapeHtml()` is used on all user-provided strings rendered to the DOM (XSS prevention)
+- All UI strings go through `t('key')` from `js/i18n.js`
+- ~160 translation keys covering navigation, forms, alerts, date formatting
+- Language preference persisted in `localStorage` (`juno_lang`)
+- Views re-render on language switch
 
 ---
 
 ## Design System
 
-The UI uses a calm, professional palette defined as CSS custom properties in `styles.css`:
+CSS custom properties defined in `styles.css`:
 
 | Variable | Value | Usage |
 |---|---|---|
@@ -283,42 +336,81 @@ The UI uses a calm, professional palette defined as CSS custom properties in `st
 | `--text-dark` | `#2C332A` | Primary text |
 | `--pending` | `#E6A8A8` | Alerts, errors, GA warnings |
 
-Typography: **Inter** (body) + **Playfair Display** (headings)
+Typography: **Inter** (body) + **Playfair Display** (headings), loaded from Google Fonts.
 
 ---
 
 ## Key Design Decisions
 
-**SQLite over PostgreSQL** — This is a single-user local app. SQLite requires zero infrastructure, is faster for the load, and the file is trivially backed up. Migrating to PostgreSQL later is a one-file change in `db.py`.
+**SQLite over PostgreSQL** — Single-user local app. Zero infrastructure, fast for the load, trivially backed up. Migrating to PostgreSQL is a one-file change in `db.py`.
 
-**No frontend framework** — Vanilla JS keeps the project dependency-free and easy to hand off. The SPA pattern (`router.navigateTo()` + `innerHTML` injection) is straightforward to follow and extend.
+**No frontend framework** — Vanilla JS keeps the project dependency-free. The SPA pattern (`router.navigateTo()` + `innerHTML` injection) is simple to follow. The modular `js/` structure keeps individual files small and focused.
 
-**Soft deletes only** — Patients are never removed from the database, only marked `discharged`. This preserves appointment history and avoids foreign key issues.
+**ES modules over a bundler** — `<script type="module">` is natively supported in all modern browsers. No webpack, no npm install, no build step. The tradeoff is no tree-shaking or minification, but the total JS is ~2K lines so it doesn't matter.
 
-**Inline geocoding** — Geocoding happens in the same HTTP request as patient creation. This adds ~1s to the response but means the patient is immediately ready for route planning. A background job would be more scalable but is over-engineered for this use case.
+**Soft deletes only** — Patients are never removed from the database, only marked `discharged`. This preserves appointment history and avoids foreign key cascading.
+
+**Inline geocoding** — Geocoding happens in the same HTTP request as patient creation (~1s delay). The patient is immediately ready for route planning. A background job would be more scalable but over-engineered for this use case.
+
+**OSRM with Haversine fallback** — Real road distances are more accurate, but the OSRM demo API has no SLA. Every code path that uses OSRM has a Haversine fallback, so the app never breaks if the API is down.
 
 ---
 
-## Architectural Rules (from `claude.md`)
+## Deployment
 
-1. Flask is the sole server — serves both the API and all static files. No CORS needed.
-2. `juno.db` is never committed to version control.
-3. Nominatim: max 1 req/sec. Always cache results. Never call twice for the same address.
-4. Route optimization requires ≥ 2 appointments with non-NULL coordinates.
-5. All patient data is fictional — the system is not designed for real PII in its current state.
-6. No build step — Leaflet from CDN, no npm, no webpack.
+### Local (default)
+```bash
+pip3 install flask
+python3 tools/server.py
+# → http://localhost:5001
+```
+
+### Railway
+The repo includes a `Procfile` and `requirements.txt` for one-click Railway deployment:
+```
+web: gunicorn -w 2 -b 0.0.0.0:$PORT tools.server:app
+```
+
+Set the `DATABASE_PATH` environment variable to control where SQLite stores its file (defaults to `juno.db` in the project root).
+
+---
+
+## Architectural Rules
+
+These are enforced by convention and documented in `claude.md`:
+
+1. **Single server** — Flask serves both the API and all static files. No CORS needed.
+2. **`juno.db` is never committed** to version control.
+3. **Nominatim rate limit** — max 1 req/sec, always cache results, never call twice for the same address.
+4. **Route guard** — optimization requires >= 2 geocoded appointments. Otherwise returns a time-sorted list.
+5. **No real PII** — all patient data is fictional. Not designed for production patient data.
+6. **No build step** — Leaflet from CDN, JS via native ES modules. `python3 tools/server.py` is the only command.
+7. **Map cleanup** — `mapManager.destroy()` must be called before leaving the Routes view.
+8. **Layer discipline** — `db.py` never imports Flask. `route.py` never imports Flask or `db`. Business logic stays in Layer 3.
+
+---
+
+## Seed Data
+
+On first boot, 6 fictional German patients are created and geocoded:
+
+| Name | City |
+|---|---|
+| Lena Bergmann | Berlin |
+| Maja Hoffmann | München |
+| Sophie Richter | Hamburg |
+| Clara Neumann | Köln |
+| Anna Vogt | Göttingen |
+| Emma Fischer | Leipzig |
 
 ---
 
 ## Roadmap
 
-The following are natural next steps, roughly in priority order:
-
-- [ ] **OSRM on drag reorder** — call OSRM after a manual drag to update road geometry (currently falls back to straight lines on drag)
-- [ ] **Switch to OpenRouteService** — production-grade routing API with a free tier (2,000 req/day) for when OSRM demo isn't suitable
-- [ ] **Real-time geocoding fallback** — show a map picker if Nominatim fails to find an address
-- [ ] **Patient notes history** — timestamped visit notes per appointment
-- [ ] **Export** — PDF route sheet for the day (printable)
-- [ ] **Authentication** — login system if multiple midwives share an instance
-- [ ] **Cloud deployment** — move from local SQLite to PostgreSQL + host on Railway/Render
-- [ ] **Mobile responsive layout** — midwives use their phone in the field
+- [ ] OSRM on drag reorder — call OSRM after manual drag to update road geometry
+- [ ] OpenRouteService — production routing API with free tier (2,000 req/day)
+- [ ] Map picker fallback — show a map picker if Nominatim fails to find an address
+- [ ] Patient notes history — timestamped visit notes per appointment
+- [ ] PDF export — printable daily route sheet
+- [ ] Authentication — login system for multi-user instances
+- [ ] Mobile responsive — midwives use their phone in the field

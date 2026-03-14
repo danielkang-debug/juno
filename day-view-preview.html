@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juno — Day View Preview</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --sage-green: #A8BA9A;
+            --sage-light: #C4D1BB;
+            --sage-dark: #8E9F82;
+            --white: #FFFFFF;
+            --cream: #F9F8F4;
+            --grey-light: #F0F2ED;
+            --grey-mid: #D1D5CB;
+            --text-dark: #2C332A;
+            --text-muted: #6B7A66;
+            --radius-sm: 8px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--cream);
+            color: var(--text-dark);
+            padding: 2rem;
+        }
+
+        .preview-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            background: rgba(212,175,55,0.15);
+            border: 1px solid rgba(212,175,55,0.35);
+            border-radius: 4px;
+            padding: 0.2rem 0.65rem;
+            display: inline-block;
+            margin-bottom: 1.5rem;
+        }
+
+        h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 2rem;
+            color: var(--text-dark);
+            margin-bottom: 0.25rem;
+        }
+
+        .sub {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
+        }
+
+        /* ── Day View Card ───────────────────────────────────── */
+
+        .day-view-card {
+            background: var(--white);
+            border-radius: 16px;
+            border: 1px solid rgba(168,186,154,0.15);
+            box-shadow: 0 4px 20px rgba(168,186,154,0.08);
+            overflow: hidden;
+            max-width: 680px;
+        }
+
+        .day-view-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--grey-light);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .day-view-header h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.25rem;
+        }
+
+        .day-view-header .apt-count {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        /* ── Time Grid ───────────────────────────────────────── */
+
+        .time-grid-scroll {
+            overflow-y: auto;
+            max-height: 520px;
+        }
+
+        .time-grid-inner {
+            display: grid;
+            grid-template-columns: 56px 1fr;
+        }
+
+        .hour-labels {
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--grey-light);
+            background: var(--white);
+            z-index: 2;
+        }
+
+        .hour-label {
+            height: 64px;
+            display: flex;
+            align-items: flex-start;
+            padding-top: 6px;
+            justify-content: flex-end;
+            padding-right: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .events-column {
+            position: relative;
+            background: var(--white);
+        }
+
+        .hour-line {
+            position: absolute;
+            left: 0; right: 0;
+            height: 1px;
+            background: var(--grey-light);
+            pointer-events: none;
+        }
+
+        /* Current time indicator */
+        .now-line {
+            position: absolute;
+            left: 0; right: 0;
+            height: 2px;
+            background: #C0392B;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .now-line::before {
+            content: '';
+            position: absolute;
+            left: -1px;
+            top: -4px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #C0392B;
+        }
+
+        /* ── Event Blocks ────────────────────────────────────── */
+
+        .evt {
+            position: absolute;
+            border-radius: var(--radius-sm);
+            padding: 6px 10px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: filter 0.15s, transform 0.15s;
+            z-index: 5;
+        }
+
+        .evt:hover {
+            filter: brightness(0.95);
+            transform: translateX(2px);
+            z-index: 6;
+        }
+
+        /* Fixed — solid sage green */
+        .evt-fixed {
+            background: var(--sage-green);
+            border-left: 3px solid var(--sage-dark);
+        }
+
+        /* Flexible — diagonal grey stripe */
+        .evt-flex {
+            background: repeating-linear-gradient(
+                -45deg,
+                #e4eae0,
+                #e4eae0 4px,
+                #f0f4ed 4px,
+                #f0f4ed 12px
+            );
+            border: 1.5px solid var(--sage-light);
+            border-left: 3px solid var(--sage-light);
+        }
+
+        .evt-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.3;
+        }
+
+        .evt-fixed .evt-title { color: var(--white); }
+        .evt-flex  .evt-title { color: var(--text-dark); }
+
+        .evt-meta {
+            font-size: 0.72rem;
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .evt-fixed .evt-meta { color: rgba(255,255,255,0.85); }
+        .evt-flex  .evt-meta { color: var(--text-muted); }
+
+        .evt-time-range {
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-top: 1px;
+        }
+
+        .evt-fixed .evt-time-range { color: rgba(255,255,255,0.75); }
+        .evt-flex  .evt-time-range { color: var(--text-muted); }
+
+        .flex-badge {
+            display: inline-block;
+            font-size: 0.62rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            padding: 1px 5px;
+            border-radius: 3px;
+            background: rgba(168,186,154,0.35);
+            color: var(--sage-dark);
+            vertical-align: middle;
+            margin-left: 3px;
+        }
+
+        /* ── Legend ──────────────────────────────────────────── */
+
+        .legend {
+            display: flex;
+            gap: 1.25rem;
+            padding: 0.85rem 1.5rem;
+            border-top: 1px solid var(--grey-light);
+            background: var(--cream);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .legend-swatch {
+            width: 18px;
+            height: 12px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        .swatch-fixed { background: var(--sage-green); }
+
+        .swatch-flex {
+            background: repeating-linear-gradient(
+                -45deg,
+                #e4eae0, #e4eae0 3px,
+                #f0f4ed 3px, #f0f4ed 8px
+            );
+            border: 1px solid var(--sage-light);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="preview-label">Markup Preview — not deployed</div>
+    <h1>Freitag, 13. März</h1>
+    <p class="sub">5 Termine · Klick auf einen Termin zum Bearbeiten</p>
+
+    <div class="day-view-card">
+
+        <div class="day-view-header">
+            <h2>Freitag, 13. März 2026</h2>
+            <span class="apt-count">5 Termine</span>
+        </div>
+
+        <div class="time-grid-scroll">
+            <div class="time-grid-inner">
+                <div class="hour-labels" id="hour-labels"></div>
+                <div class="events-column" id="events-col"></div>
+            </div>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-swatch swatch-fixed"></div>
+                Fester Termin
+            </div>
+            <div class="legend-item">
+                <div class="legend-swatch swatch-flex"></div>
+                Flexibler Termin
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const START_HOUR = 7;
+        const END_HOUR   = 19;
+        const PX_PER_HR  = 64;
+        const COL_GAP    = 4;  // px gap between overlapping columns
+
+        // Sample data — includes two overlapping blocks (10:00–10:45 and 10:15–11:15)
+        const appointments = [
+            {
+                id: '1',
+                patient_name: 'Lena Bergmann',
+                visit_type: 'prenatal',
+                appointment_kind: 'fixed',
+                time: '08:00',
+                duration_minutes: 60,
+                address: 'Musterstraße 12, Berlin',
+            },
+            {
+                id: '2',
+                patient_name: 'Maja Hoffmann',
+                visit_type: 'postnatal',
+                appointment_kind: 'flexible',
+                time: '10:00',
+                window_end: '13:00',
+                duration_minutes: 45,
+                address: 'Schillerplatz 3, Berlin',
+            },
+            {
+                id: '3',
+                patient_name: 'Sophie Richter',
+                visit_type: 'prenatal',
+                appointment_kind: 'fixed',
+                time: '10:15',
+                duration_minutes: 60,
+                address: 'Alexanderplatz 1, Berlin',
+            },
+            {
+                id: '4',
+                patient_name: 'Clara Neumann',
+                visit_type: 'postnatal',
+                appointment_kind: 'flexible',
+                time: '13:00',
+                window_end: '15:30',
+                duration_minutes: 50,
+                address: 'Kölner Dom-Str. 4, Köln',
+            },
+            {
+                id: '5',
+                patient_name: 'Anna Vogt',
+                visit_type: 'prenatal',
+                appointment_kind: 'fixed',
+                time: '15:30',
+                duration_minutes: 45,
+                address: 'Kurfürstendamm 22, Berlin',
+            },
+        ];
+
+        // ── Helpers ────────────────────────────────────────────
+        function timeToDecimal(hhmm) {
+            const [h, m] = hhmm.split(':').map(Number);
+            return h + m / 60;
+        }
+
+        function fmtRange(time, duration_minutes) {
+            const [h, m] = time.split(':').map(Number);
+            const endMin = h * 60 + m + duration_minutes;
+            const eh = Math.floor(endMin / 60);
+            const em = endMin % 60;
+            return `${time} – ${String(eh).padStart(2,'0')}:${String(em).padStart(2,'0')}`;
+        }
+
+        const visitLabels = { prenatal: 'Pränatal', postnatal: 'Postnatal', birth: 'Geburt' };
+
+        // ── Overlap layout algorithm ───────────────────────────
+        // Returns array of { apt, col, totalCols } where col is 0-indexed column slot
+        function computeLayout(apts) {
+            // Sort by start time
+            const sorted = [...apts].map(apt => ({
+                apt,
+                start: timeToDecimal(apt.time),
+                end:   timeToDecimal(apt.time) + apt.duration_minutes / 60,
+            })).sort((a, b) => a.start - b.start);
+
+            const result = sorted.map(item => ({ ...item, col: 0, totalCols: 1 }));
+
+            // Assign columns: greedy — each event goes into the first column
+            // where it doesn't overlap with the previous event in that column
+            const colEnds = []; // colEnds[i] = end time of last event placed in column i
+
+            result.forEach(item => {
+                let placed = false;
+                for (let c = 0; c < colEnds.length; c++) {
+                    if (item.start >= colEnds[c] - 0.001) {
+                        item.col = c;
+                        colEnds[c] = item.end;
+                        placed = true;
+                        break;
+                    }
+                }
+                if (!placed) {
+                    item.col = colEnds.length;
+                    colEnds.push(item.end);
+                }
+            });
+
+            // Count max overlapping columns for each event's time range
+            result.forEach(item => {
+                let maxCols = 1;
+                result.forEach(other => {
+                    if (other === item) return;
+                    const overlap = item.start < other.end - 0.001 && other.start < item.end - 0.001;
+                    if (overlap) maxCols = Math.max(maxCols, other.col + 1, item.col + 1);
+                });
+                item.totalCols = maxCols;
+            });
+
+            return result;
+        }
+
+        // ── Build hour labels + grid lines ─────────────────────
+        const labelsEl = document.getElementById('hour-labels');
+        const eventsEl = document.getElementById('events-col');
+        const totalHeight = (END_HOUR - START_HOUR) * PX_PER_HR;
+        eventsEl.style.height = totalHeight + 'px';
+
+        for (let h = START_HOUR; h <= END_HOUR; h++) {
+            const lbl = document.createElement('div');
+            lbl.className = 'hour-label';
+            lbl.textContent = h < END_HOUR ? `${String(h).padStart(2,'0')}:00` : '';
+            labelsEl.appendChild(lbl);
+
+            if (h < END_HOUR) {
+                const line = document.createElement('div');
+                line.className = 'hour-line';
+                line.style.top = ((h - START_HOUR) * PX_PER_HR) + 'px';
+                eventsEl.appendChild(line);
+            }
+        }
+
+        // ── Current time line ──────────────────────────────────
+        const now = new Date();
+        const nowDecimal = now.getHours() + now.getMinutes() / 60;
+        if (nowDecimal >= START_HOUR && nowDecimal <= END_HOUR) {
+            const nowLine = document.createElement('div');
+            nowLine.className = 'now-line';
+            nowLine.style.top = ((nowDecimal - START_HOUR) * PX_PER_HR) + 'px';
+            eventsEl.appendChild(nowLine);
+        }
+
+        // ── Render events with overlap layout ─────────────────
+        const layout = computeLayout(appointments);
+
+        layout.forEach(({ apt, col, totalCols }) => {
+            const topPx    = (timeToDecimal(apt.time) - START_HOUR) * PX_PER_HR;
+            const heightPx = Math.max((apt.duration_minutes / 60) * PX_PER_HR, 36);
+
+            // Width and left position based on column slot
+            const MARGIN   = 8;  // px from left edge of events-col
+            const available = eventsEl.offsetWidth - MARGIN - (COL_GAP * (totalCols - 1));
+            const colWidth  = available / totalCols;
+            const leftPx    = MARGIN + col * (colWidth + COL_GAP);
+            const rightPx   = eventsEl.offsetWidth - (leftPx + colWidth);
+
+            const el = document.createElement('div');
+            el.className = `evt evt-${apt.appointment_kind === 'flexible' ? 'flex' : 'fixed'}`;
+            el.style.top    = topPx + 'px';
+            el.style.height = heightPx + 'px';
+            el.style.left   = leftPx + 'px';
+            el.style.right  = Math.max(rightPx, 4) + 'px';
+
+            const flexBadge   = apt.appointment_kind === 'flexible' ? `<span class="flex-badge">Flex</span>` : '';
+            const windowNote  = apt.appointment_kind === 'flexible' && apt.window_end
+                ? `Fenster bis ${apt.window_end} · ` : '';
+
+            el.innerHTML = `
+                <div class="evt-title">${apt.patient_name}${flexBadge}</div>
+                ${heightPx > 44 ? `<div class="evt-meta">📍 ${apt.address}</div>` : ''}
+                ${heightPx > 52 ? `<div class="evt-time-range">${windowNote}${fmtRange(apt.time, apt.duration_minutes)} · ${visitLabels[apt.visit_type]}</div>` : ''}
+            `;
+
+            eventsEl.appendChild(el);
+        });
+    </script>
+
+</body>
+</html>

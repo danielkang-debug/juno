@@ -1,0 +1,11 @@
+{
+  "name": "juno",
+  "version": "1.0.0",
+  "description": "Juno | Midwife Productivity Suite",
+  "scripts": {
+    "start": "npx serve . -p 5001"
+  },
+  "dependencies": {
+    "serve": "^14.2.3"
+  }
+}

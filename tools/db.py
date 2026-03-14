@@ -1,13 +1,14 @@
 """
 tools/db.py — Juno Data Layer
-All SQL lives here. No Flask imports. No external dependencies.
+All SQL lives here. No Flask imports.
+werkzeug.security is used for password hashing (ships with Flask, not Flask-specific).
 """
 
 import sqlite3
 import uuid
 import json
 from datetime import datetime, date, timedelta
-from typing import Optional, List
+from werkzeug.security import generate_password_hash, check_password_hash
 
 import os
 DB_PATH = os.environ.get("DB_PATH", "juno.db")
@@ -53,50 +54,146 @@ def init_db() -> None:
 
             CREATE TABLE IF NOT EXISTS routes (
                 id TEXT PRIMARY KEY,
-                date TEXT UNIQUE NOT NULL,
+                date TEXT NOT NULL,
+                user_id TEXT NOT NULL DEFAULT '',
                 ordered_appointment_ids TEXT NOT NULL,
                 estimated_travel_minutes INTEGER DEFAULT 0,
-                saved_at TEXT NOT NULL
+                saved_at TEXT NOT NULL,
+                UNIQUE(user_id, date)
+            );
+
+            CREATE TABLE IF NOT EXISTS users (
+                id TEXT PRIMARY KEY,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                name TEXT NOT NULL,
+                created_at TEXT NOT NULL
             );
         """)
+        # Migrate: add new appointment columns if they don't exist yet
+        for col, definition in [
+            ('appointment_kind', "TEXT DEFAULT 'fixed'"),
+            ('duration_minutes', "INTEGER DEFAULT 60"),
+            ('window_end',       "TEXT DEFAULT ''"),
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE appointments ADD COLUMN {col} {definition}")
+            except Exception:
+                pass  # column already exists
+
+        # Migrate: add user_id column to existing tables
+        for table in ['patients', 'appointments']:
+            try:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN user_id TEXT DEFAULT ''")
+            except Exception:
+                pass  # column already exists
+
+        # Migrate: routes table UNIQUE(date) → UNIQUE(user_id, date)
+        # If old routes table exists without user_id, recreate it
+        try:
+            conn.execute("ALTER TABLE routes ADD COLUMN user_id TEXT DEFAULT ''")
+            # If we got here, old table existed — drop and recreate with new constraint
+            rows = conn.execute("SELECT * FROM routes").fetchall()
+            conn.execute("DROP TABLE routes")
+            conn.execute("""
+                CREATE TABLE routes (
+                    id TEXT PRIMARY KEY,
+                    date TEXT NOT NULL,
+                    user_id TEXT NOT NULL DEFAULT '',
+                    ordered_appointment_ids TEXT NOT NULL,
+                    estimated_travel_minutes INTEGER DEFAULT 0,
+                    saved_at TEXT NOT NULL,
+                    UNIQUE(user_id, date)
+                )
+            """)
+            for r in rows:
+                conn.execute(
+                    "INSERT INTO routes (id, date, user_id, ordered_appointment_ids, estimated_travel_minutes, saved_at) VALUES (?, ?, '', ?, ?, ?)",
+                    (r['id'], r['date'], r['ordered_appointment_ids'], r['estimated_travel_minutes'], r['saved_at'])
+                )
+        except Exception:
+            pass  # user_id already exists or table is already new schema
+
+
+# ---------------------------------------------------------------------------
+# Users (Auth)
+# ---------------------------------------------------------------------------
+
+def create_user(email, password, name):
+    """Create a new user. Hashes the password. Returns user dict (no password_hash)."""
+    user_id = str(uuid.uuid4())
+    now = datetime.utcnow().isoformat()
+    pw_hash = generate_password_hash(password, method='pbkdf2:sha256')
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO users (id, email, password_hash, name, created_at) VALUES (?, ?, ?, ?, ?)",
+            (user_id, email.lower().strip(), pw_hash, name.strip(), now)
+        )
+    return {"id": user_id, "email": email.lower().strip(), "name": name.strip(), "created_at": now}
+
+
+def get_user_by_email(email):
+    """Returns full user row including password_hash (for login verification), or None."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM users WHERE email = ?", (email.lower().strip(),)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def get_user_by_id(user_id):
+    """Returns user dict without password_hash, or None."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT id, email, name, created_at FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def verify_password(stored_hash, password):
+    """Check a password against a stored hash."""
+    return check_password_hash(stored_hash, password)
 
 
 # ---------------------------------------------------------------------------
 # Patients
 # ---------------------------------------------------------------------------
 
-def list_patients(include_discharged: bool = False) -> list:
+def list_patients(user_id, include_discharged=False):
     with get_conn() as conn:
         if include_discharged:
             rows = conn.execute(
-                "SELECT * FROM patients ORDER BY name"
+                "SELECT * FROM patients WHERE user_id = ? ORDER BY name",
+                (user_id,)
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT * FROM patients WHERE status IN ('active', 'postpartum') ORDER BY name"
+                "SELECT * FROM patients WHERE user_id = ? AND status IN ('active', 'postpartum') ORDER BY name",
+                (user_id,)
             ).fetchall()
         return [dict(r) for r in rows]
 
 
-def get_patient(patient_id: str):
+def get_patient(user_id, patient_id):
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT * FROM patients WHERE id = ?", (patient_id,)
+            "SELECT * FROM patients WHERE id = ? AND user_id = ?", (patient_id, user_id)
         ).fetchone()
         return dict(row) if row else None
 
 
-def create_patient(data: dict) -> dict:
+def create_patient(user_id, data):
     patient_id = str(uuid.uuid4())
     now = datetime.utcnow().isoformat()
     with get_conn() as conn:
         conn.execute("""
-            INSERT INTO patients (id, name, address, phone,
+            INSERT INTO patients (id, user_id, name, address, phone,
                 gestational_age_weeks, gestational_age_days,
                 due_date, notes, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             patient_id,
+            user_id,
             data.get("name", ""),
             data.get("address", ""),
             data.get("phone", ""),
@@ -107,43 +204,39 @@ def create_patient(data: dict) -> dict:
             data.get("status", "active"),
             now,
         ))
-    return get_patient(patient_id)
+    return get_patient(user_id, patient_id)
 
 
-def update_patient(patient_id: str, data: dict):
-    patient = get_patient(patient_id)
-    if not patient:
-        return None
-    # Merge existing with updates
+def update_patient(user_id, patient_id, data):
+    """Partial update: only fields present in data are changed. Returns updated patient or None."""
     fields = ["name", "address", "phone", "gestational_age_weeks",
               "gestational_age_days", "due_date", "notes", "status"]
-    updates = {}
-    for f in fields:
-        if f in data:
-            updates[f] = data[f]
-    if not updates:
-        return patient
-    set_clause = ", ".join(f"{k} = ?" for k in updates)
-    values = list(updates.values()) + [patient_id]
+    updates = {f: data[f] for f in fields if f in data}
     with get_conn() as conn:
-        conn.execute(f"UPDATE patients SET {set_clause} WHERE id = ?", values)
-    return get_patient(patient_id)
+        if not conn.execute("SELECT id FROM patients WHERE id = ? AND user_id = ?", (patient_id, user_id)).fetchone():
+            return None
+        if updates:
+            set_clause = ", ".join(f"{k} = ?" for k in updates)
+            conn.execute(f"UPDATE patients SET {set_clause} WHERE id = ? AND user_id = ?",
+                         list(updates.values()) + [patient_id, user_id])
+        row = conn.execute("SELECT * FROM patients WHERE id = ? AND user_id = ?", (patient_id, user_id)).fetchone()
+        return dict(row)
 
 
-def delete_patient(patient_id: str) -> bool:
+def delete_patient(user_id, patient_id):
     """Soft delete: set status to discharged."""
-    patient = get_patient(patient_id)
+    patient = get_patient(user_id, patient_id)
     if not patient:
         return False
     with get_conn() as conn:
         conn.execute(
-            "UPDATE patients SET status = 'discharged' WHERE id = ?",
-            (patient_id,)
+            "UPDATE patients SET status = 'discharged' WHERE id = ? AND user_id = ?",
+            (patient_id, user_id)
         )
     return True
 
 
-def update_patient_coords(patient_id: str, lat: float, lon: float) -> None:
+def update_patient_coords(patient_id, lat, lon):
     with get_conn() as conn:
         conn.execute(
             "UPDATE patients SET lat = ?, lon = ? WHERE id = ?",
@@ -155,78 +248,96 @@ def update_patient_coords(patient_id: str, lat: float, lon: float) -> None:
 # Appointments
 # ---------------------------------------------------------------------------
 
-def list_appointments_by_date(date_str: str) -> list:
+def list_appointments_by_date(user_id, date_str):
     """Return appointments joined with patient data for a given date."""
     with get_conn() as conn:
         rows = conn.execute("""
             SELECT
                 a.id, a.patient_id, a.date, a.time, a.visit_type,
                 a.notes, a.status, a.created_at,
+                a.appointment_kind, a.duration_minutes, a.window_end,
                 p.name as patient_name, p.address, p.lat, p.lon,
                 p.gestational_age_weeks, p.gestational_age_days,
                 p.status as patient_status
             FROM appointments a
             JOIN patients p ON a.patient_id = p.id
-            WHERE a.date = ? AND a.status != 'cancelled'
+            WHERE a.date = ? AND a.status != 'cancelled' AND p.user_id = ?
             ORDER BY a.time ASC
-        """, (date_str,)).fetchall()
+        """, (date_str, user_id)).fetchall()
         return [dict(r) for r in rows]
 
 
-def list_appointments_by_month(month_str: str) -> list:
+def list_appointments_by_month(user_id, month_str):
     """Return count of appointments per day for a given month (YYYY-MM)."""
     with get_conn() as conn:
         rows = conn.execute("""
-            SELECT date, COUNT(*) as count
-            FROM appointments
-            WHERE date LIKE ? AND status != 'cancelled'
-            GROUP BY date
-        """, (f"{month_str}-%",)).fetchall()
+            SELECT a.date, COUNT(*) as count
+            FROM appointments a
+            JOIN patients p ON a.patient_id = p.id
+            WHERE a.date LIKE ? AND a.status != 'cancelled' AND p.user_id = ?
+            GROUP BY a.date
+        """, (f"{month_str}-%", user_id)).fetchall()
         return [dict(r) for r in rows]
 
 
-def create_appointment(data: dict) -> dict:
+def create_appointment(user_id, data):
     apt_id = str(uuid.uuid4())
     now = datetime.utcnow().isoformat()
     with get_conn() as conn:
+        # Verify patient belongs to this user
+        if not conn.execute("SELECT id FROM patients WHERE id = ? AND user_id = ?",
+                            (data["patient_id"], user_id)).fetchone():
+            return None
         conn.execute("""
-            INSERT INTO appointments (id, patient_id, date, time, visit_type, notes, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, 'scheduled', ?)
+            INSERT INTO appointments (id, user_id, patient_id, date, time, visit_type, notes, status,
+                                     appointment_kind, duration_minutes, window_end, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, ?, ?)
         """, (
             apt_id,
+            user_id,
             data["patient_id"],
             data["date"],
             data["time"],
             data.get("visit_type", "prenatal"),
             data.get("notes", ""),
+            data.get("appointment_kind", "fixed"),
+            int(data.get("duration_minutes", 60)),
+            data.get("window_end", ""),
             now,
         ))
-    with get_conn() as conn:
         row = conn.execute("SELECT * FROM appointments WHERE id = ?", (apt_id,)).fetchone()
         return dict(row)
 
 
-def update_appointment(apt_id: str, data: dict):
-    with get_conn() as conn:
-        row = conn.execute("SELECT * FROM appointments WHERE id = ?", (apt_id,)).fetchone()
-        if not row:
-            return None
-    fields = ["patient_id", "date", "time", "visit_type", "notes", "status"]
+def update_appointment(user_id, apt_id, data):
+    """Partial update: only fields present in data are changed. Returns updated appointment or None."""
+    fields = ["patient_id", "date", "time", "visit_type", "notes", "status",
+              "appointment_kind", "duration_minutes", "window_end"]
     updates = {f: data[f] for f in fields if f in data}
-    if updates:
-        set_clause = ", ".join(f"{k} = ?" for k in updates)
-        values = list(updates.values()) + [apt_id]
-        with get_conn() as conn:
-            conn.execute(f"UPDATE appointments SET {set_clause} WHERE id = ?", values)
     with get_conn() as conn:
+        # Verify appointment belongs to this user (via patient ownership)
+        if not conn.execute("""
+            SELECT a.id FROM appointments a
+            JOIN patients p ON a.patient_id = p.id
+            WHERE a.id = ? AND p.user_id = ?
+        """, (apt_id, user_id)).fetchone():
+            return None
+        if updates:
+            set_clause = ", ".join(f"{k} = ?" for k in updates)
+            conn.execute(f"UPDATE appointments SET {set_clause} WHERE id = ?",
+                         list(updates.values()) + [apt_id])
         row = conn.execute("SELECT * FROM appointments WHERE id = ?", (apt_id,)).fetchone()
         return dict(row)
 
 
-def cancel_appointment(apt_id: str) -> bool:
+def cancel_appointment(user_id, apt_id):
     with get_conn() as conn:
-        row = conn.execute("SELECT id FROM appointments WHERE id = ?", (apt_id,)).fetchone()
-        if not row:
+        # Verify appointment belongs to this user (via patient ownership)
+        if not conn.execute("""
+            SELECT a.id FROM appointments a
+            JOIN patients p ON a.patient_id = p.id
+            WHERE a.id = ? AND p.user_id = ?
+        """, (apt_id, user_id)).fetchone():
             return False
         conn.execute("UPDATE appointments SET status = 'cancelled' WHERE id = ?", (apt_id,))
     return True
@@ -236,10 +347,10 @@ def cancel_appointment(apt_id: str) -> bool:
 # Routes
 # ---------------------------------------------------------------------------
 
-def get_route(date_str: str):
+def get_route(user_id, date_str):
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT * FROM routes WHERE date = ?", (date_str,)
+            "SELECT * FROM routes WHERE date = ? AND user_id = ?", (date_str, user_id)
         ).fetchone()
         if not row:
             return None
@@ -248,29 +359,33 @@ def get_route(date_str: str):
         return result
 
 
-def save_route(date_str: str, ordered_ids: list, travel_minutes: int):
+def save_route(user_id, date_str, ordered_ids, travel_minutes):
+    """Upsert route for a date+user. INSERT OR REPLACE makes this idempotent — re-optimizing
+    the same day overwrites the prior saved route. ordered_ids stored as JSON array."""
     route_id = str(uuid.uuid4())
     now = datetime.utcnow().isoformat()
     with get_conn() as conn:
         conn.execute("""
-            INSERT OR REPLACE INTO routes (id, date, ordered_appointment_ids, estimated_travel_minutes, saved_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO routes (id, date, user_id, ordered_appointment_ids, estimated_travel_minutes, saved_at)
+            VALUES (?, ?, ?, ?, ?, ?)
         """, (
             route_id,
             date_str,
+            user_id,
             json.dumps(ordered_ids),
             travel_minutes,
             now,
         ))
-    return get_route(date_str)
+    return get_route(user_id, date_str)
 
 
 # ---------------------------------------------------------------------------
 # Seed Data
 # ---------------------------------------------------------------------------
 
-def seed_mock_data() -> None:
-    """Insert 6 fictional patients + appointments for the current week."""
+def seed_mock_data(user_id=""):
+    """Insert 6 fictional German patients + appointments spread across the current Mon–Fri.
+    All data is synthetic — never use with real patient data."""
     patients_data = [
         {
             "name": "Lena Bergmann",
@@ -336,7 +451,7 @@ def seed_mock_data() -> None:
 
     created_patients = []
     for p_data in patients_data:
-        patient = create_patient(p_data)
+        patient = create_patient(user_id, p_data)
         created_patients.append(patient)
 
     # Seed appointments across this week (Mon–Fri relative to today)
@@ -375,7 +490,7 @@ def seed_mock_data() -> None:
     for i, (day_offset, time_str, visit_type) in enumerate(appointment_slots):
         apt_date = (monday + timedelta(days=day_offset)).isoformat()
         patient = patient_cycle[i]
-        create_appointment({
+        create_appointment(user_id, {
             "patient_id": patient["id"],
             "date": apt_date,
             "time": time_str,
