@@ -141,6 +141,15 @@ def get_user_by_email(email):
         return dict(row) if row else None
 
 
+def list_all_users():
+    """Returns all users (id, email, name, created_at) — no passwords."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, email, name, created_at FROM users ORDER BY created_at"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
 def get_user_by_id(user_id):
     """Returns user dict without password_hash, or None."""
     with get_conn() as conn:

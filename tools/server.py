@@ -48,7 +48,7 @@ def ensure_initialized():
 def require_auth():
     """Protect all /api/* endpoints except /api/auth/*. Static files are public."""
     path = request.path
-    if path.startswith('/api/auth/'):
+    if path.startswith('/api/auth/') or path.startswith('/api/admin/'):
         return
     if not path.startswith('/api/'):
         return
@@ -353,6 +353,17 @@ def get_route(date_str):
     if not saved:
         return jsonify({"error": "No saved route for this date"}), 404
     return jsonify(saved)
+
+
+# ---------------------------------------------------------------------------
+# Admin Endpoints
+# ---------------------------------------------------------------------------
+
+@app.route("/api/admin/users", methods=["GET"])
+def admin_list_users():
+    """GET /api/admin/users — lists all registered users (no passwords)."""
+    users = db.list_all_users()
+    return jsonify(users)
 
 
 # ---------------------------------------------------------------------------
