@@ -1978,6 +1978,42 @@ tr.row-alert td {
         justify-content: center;
     }
 
+    /* ── Appointment cards ────────────────────────────────────────── */
+
+    .apt-cards-grid {
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    }
+
+    /* ── Touch feedback ──────────────────────────────────────────── */
+
+    .nav-item:active {
+        background: var(--grey-light);
+    }
+
+    .btn-primary:active,
+    .auth-submit:active {
+        background: var(--sage-dark);
+        transform: scale(0.97);
+    }
+
+    .btn-secondary:active {
+        background: var(--grey-mid);
+        transform: scale(0.97);
+    }
+
+    .rdc-arrow-btn:active {
+        background: var(--sage-green);
+        color: var(--white);
+    }
+
+    .calendar-day:active {
+        background: var(--grey-light);
+    }
+
+    .data-table tbody tr:active {
+        background: var(--grey-light);
+    }
+
     /* ── Toast — above tab bar ────────────────────────────────────── */
 
     .toast {
@@ -1986,6 +2022,93 @@ tr.row-alert td {
         bottom: 72px;
         max-width: none;
     }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   SMALL PHONE — max-width: 375px
+   ══════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 375px) {
+
+    /* ── Navigation ──────────────────────────────────────────────── */
+
+    .nav-icon { font-size: 1rem; }
+    .nav-item { font-size: 0.55rem; padding: 0.35rem 0.15rem; }
+
+    /* ── Main content ────────────────────────────────────────────── */
+
+    .main-content {
+        padding: 0.75rem;
+        padding-bottom: 68px;
+    }
+
+    /* ── Headers ─────────────────────────────────────────────────── */
+
+    .header h1 { font-size: 1.2rem; }
+    .header { margin-bottom: 1rem; }
+
+    /* ── Dashboard ───────────────────────────────────────────────── */
+
+    .hero-card { height: 130px; }
+    .hero-content h2 { font-size: 1.2rem; }
+    .hero-content p { font-size: 0.8rem; }
+
+    .metric-card {
+        padding: 0.75rem;
+    }
+
+    .metric-card .metric-value { font-size: 1.4rem; }
+    .metric-card .metric-label { font-size: 0.7rem; }
+
+    /* ── Calendar ────────────────────────────────────────────────── */
+
+    .calendar-grid { gap: 2px; }
+    .day-cell { font-size: 0.75rem; min-height: 36px; padding: 4px; }
+
+    .apt-indicator {
+        width: 14px;
+        height: 14px;
+        font-size: 0.5rem;
+    }
+
+    /* ── Appointment cards ───────────────────────────────────────── */
+
+    .apt-cards-grid {
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    }
+
+    /* ── Routes ──────────────────────────────────────────────────── */
+
+    .route-lower-grid .map-container {
+        height: 200px;
+        min-height: 200px;
+    }
+
+    .rdc-arrow-btn { width: 32px; height: 28px; font-size: 0.65rem; }
+
+    /* ── Mothers table ───────────────────────────────────────────── */
+
+    .data-table th,
+    .data-table td {
+        padding: 0.5rem 0.35rem;
+        font-size: 0.75rem;
+    }
+
+    /* ── Modals ──────────────────────────────────────────────────── */
+
+    .modal-box { padding: 1rem; }
+    .modal-header h2 { font-size: 1.1rem; }
+
+    .form-group label { font-size: 0.8rem; }
+    .form-group input,
+    .form-group select,
+    .form-group textarea { font-size: 0.85rem; padding: 0.6rem 0.75rem; }
+
+    /* ── Auth ────────────────────────────────────────────────────── */
+
+    .auth-card { padding: 2rem 1.5rem; }
+    .auth-title { font-size: 1.3rem; }
+    .auth-view { padding: 1rem; }
 }
 
 
