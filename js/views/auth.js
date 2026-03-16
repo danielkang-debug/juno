@@ -31,6 +31,13 @@ export const authView = {
                             <input type="password" id="auth-password" placeholder="${t('auth_password_placeholder')}" autocomplete="current-password" required>
                         </div>
 
+                        <div id="tos-field" class="auth-tos" style="display: none;">
+                            <label>
+                                <input type="checkbox" id="auth-tos">
+                                <span>${t('auth_tos_text')} <a href="#" id="auth-tos-link">${t('auth_tos_link')}</a></span>
+                            </label>
+                        </div>
+
                         <div id="auth-error" class="auth-error" style="display: none;"></div>
 
                         <button type="submit" class="auth-submit" id="auth-submit">${t('auth_login_btn')}</button>
@@ -46,6 +53,7 @@ export const authView = {
 
         this._isRegister = false;
         this._setupListeners();
+        this._setupTosModal();
     },
 
     _setupListeners() {
@@ -69,6 +77,7 @@ export const authView = {
         document.getElementById('auth-title').textContent = t(isReg ? 'auth_register_title' : 'auth_login_title');
         document.getElementById('auth-subtitle').textContent = t(isReg ? 'auth_register_sub' : 'auth_login_sub');
         document.getElementById('name-field').style.display = isReg ? 'block' : 'none';
+        document.getElementById('tos-field').style.display = isReg ? 'flex' : 'none';
         document.getElementById('auth-submit').textContent = t(isReg ? 'auth_register_btn' : 'auth_login_btn');
         document.getElementById('auth-toggle-text').textContent = t(isReg ? 'auth_have_account' : 'auth_no_account');
         document.getElementById('auth-toggle-link').textContent = t(isReg ? 'auth_login_link' : 'auth_register_link');
@@ -77,13 +86,50 @@ export const authView = {
         // Update autocomplete hint for password
         const pwInput = document.getElementById('auth-password');
         pwInput.autocomplete = isReg ? 'new-password' : 'current-password';
+        const tosCheckbox = document.getElementById('auth-tos');
         if (isReg) {
             document.getElementById('auth-name').required = true;
             pwInput.minLength = 8;
+            tosCheckbox.required = true;
         } else {
             document.getElementById('auth-name').required = false;
             pwInput.removeAttribute('minLength');
+            tosCheckbox.required = false;
+            tosCheckbox.checked = false;
         }
+    },
+
+    _setupTosModal() {
+        document.getElementById('auth-tos-link').addEventListener('click', (e) => {
+            e.preventDefault();
+            this._showTosModal();
+        });
+    },
+
+    _showTosModal() {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay active';
+        overlay.innerHTML = `
+            <div class="modal-box">
+                <div class="modal-header">
+                    <h2>${t('auth_tos_link')}</h2>
+                    <button class="modal-close" id="tos-close">&times;</button>
+                </div>
+                <div class="tos-content">
+                    <p>${t('tos_intro')}</p>
+                    <ul>
+                        <li>${t('tos_prototype')}</li>
+                        <li>${t('tos_no_real_data')}</li>
+                        <li>${t('tos_data_deletion')}</li>
+                        <li>${t('tos_no_warranty')}</li>
+                        <li>${t('tos_feedback')}</li>
+                    </ul>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        overlay.querySelector('#tos-close').addEventListener('click', () => overlay.remove());
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
     },
 
     async _handleSubmit() {
