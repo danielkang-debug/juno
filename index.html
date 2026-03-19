@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Juno</title>
+
+    <!-- Tailwind CSS (CDN Play) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"DM Sans"', 'system-ui', 'sans-serif'],
+                    },
+                },
+            },
+        }
+    </script>
+
+    <!-- DM Sans font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        /* Leaflet overrides */
+        .leaflet-container { font-family: inherit; z-index: 0; }
+        .leaflet-popup-content-wrapper { border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+
+        /* Map pin numbers */
+        .map-pin {
+            display: flex; align-items: center; justify-content: center;
+            width: 28px; height: 28px; border-radius: 50%;
+            background: #1c1917; color: white;
+            font-size: 13px; font-weight: 600;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .map-pin-home {
+            background: white; color: #1c1917;
+            border: 2px solid #1c1917;
+        }
+
+        /* Bottom sheet */
+        .bottom-sheet {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: white; border-radius: 16px 16px 0 0;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+            z-index: 1000; max-height: 90vh; overflow-y: auto;
+        }
+        .bottom-sheet.open { transform: translateY(0); }
+        .bottom-sheet-backdrop {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.3);
+            z-index: 999; opacity: 0; pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .bottom-sheet-backdrop.open { opacity: 1; pointer-events: auto; }
+
+        /* Drag handle */
+        .drag-handle {
+            width: 36px; height: 4px; background: #d6d3d1;
+            border-radius: 2px; margin: 8px auto 0;
+        }
+
+        /* Smooth transitions */
+        .view-container { min-height: calc(100vh - 56px); }
+
+        /* Toast */
+        .toast {
+            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+            background: #1c1917; color: white; padding: 12px 20px;
+            border-radius: 8px; font-size: 14px; z-index: 2000;
+            animation: toast-in 0.3s ease, toast-out 0.3s ease 2.7s;
+        }
+        @keyframes toast-in { from { opacity: 0; transform: translateX(-50%) translateY(20px); } }
+        @keyframes toast-out { to { opacity: 0; transform: translateX(-50%) translateY(20px); } }
+    </style>
+</head>
+<body class="bg-stone-50 text-stone-900 font-sans antialiased">
+
+    <!-- App container -->
+    <div id="app" class="min-h-screen">
+        <!-- Navigation sidebar (hidden by default, shown via hamburger) -->
+        <div id="nav-backdrop" class="fixed inset-0 bg-black/30 z-40 hidden" onclick="window.closeNav()"></div>
+        <nav id="nav-sidebar" class="fixed top-0 left-0 bottom-0 w-64 bg-white z-50 transform -translate-x-full transition-transform duration-200 shadow-lg">
+            <div class="p-5">
+                <div class="flex items-center justify-between mb-8">
+                    <span class="text-xl font-semibold">Juno</span>
+                    <button onclick="window.closeNav()" class="p-2 -mr-2 rounded-lg hover:bg-stone-100">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <div class="space-y-1" id="nav-links"></div>
+            </div>
+        </nav>
+
+        <!-- Top bar -->
+        <header id="app-header" class="sticky top-0 bg-white border-b border-stone-200 z-30 hidden">
+            <div class="flex items-center h-14 px-4 max-w-lg mx-auto">
+                <button id="menu-btn" onclick="window.openNav()" class="p-2 -ml-2 rounded-lg hover:bg-stone-100">
+                    <i data-lucide="menu" class="w-5 h-5"></i>
+                </button>
+                <h1 id="header-title" class="ml-2 text-base font-semibold flex-1"></h1>
+                <div id="header-actions" class="flex items-center gap-1"></div>
+            </div>
+        </header>
+
+        <!-- Main content -->
+        <main id="main-content" class="max-w-lg mx-auto px-4 pb-8">
+        </main>
+    </div>
+
+    <!-- App JS -->
+    <script type="module" src="/js/app.js"></script>
+</body>
+</html>
