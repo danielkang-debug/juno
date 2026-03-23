@@ -192,7 +192,7 @@ def _score_ordering(ordering, prev_loc_idx, distance_matrix, loc_indices):
     return total
 
 
-def _check_time_feasibility(ordering, start_time_min, prev_loc_idx, distance_matrix, loc_indices):
+def _check_time_feasibility(ordering, start_time_min, prev_loc_idx, distance_matrix, loc_indices, buffer_minutes=0):
     """
     Check if an ordering is feasible given time windows.
     Returns (feasible, schedule) where schedule is list of {apt, eta_minutes}.
@@ -221,13 +221,13 @@ def _check_time_feasibility(ordering, start_time_min, prev_loc_idx, distance_mat
 
         duration = int(apt.get("duration_minutes", 60))
         schedule.append({"apt": apt, "eta_minutes": eta})
-        current_time = eta + duration
+        current_time = eta + duration + buffer_minutes
         current_loc = apt_idx
 
     return True, schedule
 
 
-def optimize_route(appointments, start_location=None):
+def optimize_route(appointments, start_location=None, start_time=None, buffer_minutes=15):
     """
     Time-window aware route optimization.
 
@@ -238,6 +238,8 @@ def optimize_route(appointments, start_location=None):
     Args:
         appointments: list of dicts with lat, lon, time, appointment_kind, window_start, window_end, etc.
         start_location: optional {lat, lon, address}
+        start_time: optional "HH:MM" string — when the midwife leaves home. If None, backwards-calculate from earliest appointment.
+        buffer_minutes: int — minutes of buffer after each appointment (wrap-up, get on bike, park). Default 15.
 
     Returns:
         {
@@ -248,7 +250,9 @@ def optimize_route(appointments, start_location=None):
             geocoded_count: int,
             skipped_count: int,
             start_location: dict | None,
-            road_geometry: [[lat,lon], ...] | None
+            road_geometry: [[lat,lon], ...] | None,
+            buffer_minutes: int,
+            departure_time: "HH:MM"
         }
     """
     geocoded = [a for a in appointments if a.get("lat") is not None and a.get("lon") is not None]
@@ -302,13 +306,18 @@ def optimize_route(appointments, start_location=None):
         first_apt = geocoded[0] if geocoded else None
         current_loc_idx = loc_indices[first_apt["id"]] if first_apt else 0
 
-    # Use earliest appointment time as start
-    earliest_time = min(time_to_minutes(a.get("time", "08:00")) for a in geocoded)
-    if has_home and geocoded:
-        first_travel = matrix[loc_indices["home"]][loc_indices[geocoded[0]["id"]]]
-        current_time = earliest_time - first_travel
+    # Determine start time
+    if start_time:
+        current_time = time_to_minutes(start_time)
     else:
-        current_time = earliest_time
+        # Legacy fallback: work backwards from earliest appointment
+        earliest_time = min(time_to_minutes(a.get("time", "08:00")) for a in geocoded)
+        if has_home and geocoded:
+            first_travel = matrix[loc_indices["home"]][loc_indices[geocoded[0]["id"]]]
+            current_time = earliest_time - first_travel
+        else:
+            current_time = earliest_time
+    departure_time = minutes_to_time(current_time)
 
     for seg in segments:
         # Add the fixed_before anchor (already placed by previous segment, skip first)
@@ -328,7 +337,7 @@ def optimize_route(appointments, start_location=None):
                     eta = window_start
                 etas[apt["id"]] = minutes_to_time(eta)
                 ordered_geocoded.append(apt)
-                current_time = eta + int(apt.get("duration_minutes", 60))
+                current_time = eta + int(apt.get("duration_minutes", 60)) + buffer_minutes
                 current_loc_idx = apt_idx
         else:
             # Try all permutations (up to 7! = 5040)
@@ -343,7 +352,7 @@ def optimize_route(appointments, start_location=None):
             for perm in flex_perms:
                 perm_list = list(perm)
                 feasible, schedule = _check_time_feasibility(
-                    perm_list, current_time, current_loc_idx, matrix, loc_indices
+                    perm_list, current_time, current_loc_idx, matrix, loc_indices, buffer_minutes
                 )
                 if feasible:
                     score = _score_ordering(perm_list, current_loc_idx, matrix, loc_indices)
@@ -367,7 +376,7 @@ def optimize_route(appointments, start_location=None):
                     eta = window_start
                 etas[apt["id"]] = minutes_to_time(eta)
                 ordered_geocoded.append(apt)
-                current_time = eta + int(apt.get("duration_minutes", 60))
+                current_time = eta + int(apt.get("duration_minutes", 60)) + buffer_minutes
                 current_loc_idx = apt_idx
 
         # Add the fixed_after anchor
@@ -378,7 +387,7 @@ def optimize_route(appointments, start_location=None):
                 fixed_time = time_to_minutes(fixed_after.get("time", ""))
                 etas[fixed_after["id"]] = fixed_after.get("time", "")
                 ordered_geocoded.append(fixed_after)
-                current_time = fixed_time + int(fixed_after.get("duration_minutes", 60))
+                current_time = fixed_time + int(fixed_after.get("duration_minutes", 60)) + buffer_minutes
                 current_loc_idx = apt_idx
 
     # Build legs
@@ -457,6 +466,8 @@ def optimize_route(appointments, start_location=None):
         "skipped_count": len(skipped),
         "start_location": start_location,
         "road_geometry": road_geometry,
+        "buffer_minutes": buffer_minutes,
+        "departure_time": departure_time,
     }
 
 

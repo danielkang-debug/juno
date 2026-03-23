@@ -78,6 +78,11 @@ def init_db():
                 UNIQUE(user_id, date)
             );
         """)
+        # Migrations for existing databases
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN buffer_minutes INTEGER DEFAULT 15")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
 
 
 # ---------------------------------------------------------------------------
@@ -107,14 +112,14 @@ def get_user_by_email(email):
 def get_user_by_id(user_id):
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT id, email, name, home_address, home_lat, home_lon, created_at FROM users WHERE id = ?",
+            "SELECT id, email, name, home_address, home_lat, home_lon, buffer_minutes, created_at FROM users WHERE id = ?",
             (user_id,)
         ).fetchone()
         return dict(row) if row else None
 
 
 def update_user(user_id, data):
-    fields = ["name", "home_address", "home_lat", "home_lon"]
+    fields = ["name", "home_address", "home_lat", "home_lon", "buffer_minutes"]
     updates = {f: data[f] for f in fields if f in data}
     if not updates:
         return get_user_by_id(user_id)

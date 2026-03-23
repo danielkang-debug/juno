@@ -290,8 +290,16 @@ def optimize_route():
             "address": data.get("start_address", ""),
         }
 
+    start_time = data.get("start_time")  # "HH:MM" or None
+    buffer_minutes = int(user.get("buffer_minutes", 15)) if user else 15
+
     appointments = db.list_appointments_by_date(user_id, date_str)
-    result = route_module.optimize_route(appointments, start_location=start_location)
+    result = route_module.optimize_route(
+        appointments,
+        start_location=start_location,
+        start_time=start_time,
+        buffer_minutes=buffer_minutes,
+    )
 
     ordered_ids = [a["id"] for a in result["ordered_appointments"]]
     db.save_route(user_id, date_str, ordered_ids, result["total_travel_minutes"])

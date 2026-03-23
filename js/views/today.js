@@ -8,6 +8,7 @@ import { router } from '../router.js';
 import { mapManager } from '../map.js';
 
 let container = null;
+let routeStartTime = '08:00'; // persists across re-renders within session
 
 function formatDate(dateStr) {
     const d = new Date(dateStr + 'T00:00:00');
@@ -253,11 +254,13 @@ function renderAppointmentList() {
         // Starting point card
         if (isOptimized && state.user?.home_lat != null) {
             const firstLeg = legs[0];
+            const departureTime = state.optimizedRoute.departure_time || '';
             html += `
                 <div class="bg-stone-50 rounded-lg border border-stone-200 p-3 mb-1 flex items-center gap-3">
                     <i data-lucide="home" class="w-5 h-5 text-stone-400"></i>
                     <div class="flex-1">
                         <span class="text-sm font-medium">Start</span>
+                        ${departureTime ? `<span class="text-sm text-stone-500 ml-2">Depart ${departureTime}</span>` : ''}
                         <div class="text-xs text-stone-400 truncate mt-0.5">${escapeHtml(state.user.home_address || '')}</div>
                     </div>
                 </div>
@@ -266,7 +269,7 @@ function renderAppointmentList() {
                 html += `
                     <div class="flex items-center gap-2 py-1 pl-5">
                         <div class="w-px h-4 bg-stone-300"></div>
-                        <span class="text-xs text-stone-400">${firstLeg.distance_km} km</span>
+                        <span class="text-xs text-stone-400">${firstLeg.distance_km} km &middot; ${firstLeg.minutes} min</span>
                     </div>
                 `;
             }
@@ -286,7 +289,7 @@ function renderAppointmentList() {
                     html += `
                         <div class="flex items-center gap-2 py-1 pl-5">
                             <div class="w-px h-4 bg-stone-300"></div>
-                            <span class="text-xs text-stone-400">${leg.distance_km} km</span>
+                            <span class="text-xs text-stone-400">${leg.distance_km} km &middot; ${leg.minutes} min</span>
                         </div>
                     `;
                 }
@@ -357,8 +360,27 @@ function renderAppointmentList() {
                 </div>
             `;
         } else {
+            const bufferVal = state.user?.buffer_minutes ?? 15;
             html += `
-                <button id="optimize-btn" class="w-full h-12 bg-stone-900 text-white rounded-lg font-medium hover:bg-stone-800 mt-4 flex items-center justify-center gap-2">
+                <div class="mt-4 mb-3 space-y-2">
+                    <div class="flex items-center gap-3">
+                        <label class="text-sm text-stone-500 whitespace-nowrap">Leave home at</label>
+                        <input id="start-time-input" type="time" value="${routeStartTime}"
+                            class="h-10 px-3 rounded-lg border border-stone-200 text-sm flex-1" />
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <label class="text-sm text-stone-500 whitespace-nowrap">Buffer between visits</label>
+                        <select id="buffer-select" class="h-10 px-3 rounded-lg border border-stone-200 text-sm flex-1">
+                            <option value="0" ${bufferVal == 0 ? 'selected' : ''}>None</option>
+                            <option value="5" ${bufferVal == 5 ? 'selected' : ''}>5 min</option>
+                            <option value="10" ${bufferVal == 10 ? 'selected' : ''}>10 min</option>
+                            <option value="15" ${bufferVal == 15 ? 'selected' : ''}>15 min</option>
+                            <option value="20" ${bufferVal == 20 ? 'selected' : ''}>20 min</option>
+                            <option value="30" ${bufferVal == 30 ? 'selected' : ''}>30 min</option>
+                        </select>
+                    </div>
+                </div>
+                <button id="optimize-btn" class="w-full h-12 bg-stone-900 text-white rounded-lg font-medium hover:bg-stone-800 flex items-center justify-center gap-2">
                     <i data-lucide="route" class="w-5 h-5"></i>
                     Optimize Route
                 </button>
@@ -376,6 +398,20 @@ function renderAppointmentList() {
     document.getElementById('add-apt-btn')?.addEventListener('click', showAddAppointment);
     document.getElementById('add-apt-empty')?.addEventListener('click', showAddAppointment);
     document.getElementById('import-btn')?.addEventListener('click', showImport);
+
+    // Route settings inputs
+    document.getElementById('start-time-input')?.addEventListener('change', (e) => {
+        routeStartTime = e.target.value;
+    });
+    document.getElementById('buffer-select')?.addEventListener('change', async (e) => {
+        const val = parseInt(e.target.value);
+        try {
+            const user = await api.updateMe({ buffer_minutes: val });
+            state.user = user;
+        } catch (err) {
+            showToast('Could not save buffer setting');
+        }
+    });
 
     // Appointment card click → edit
     document.querySelectorAll('[data-apt-id]').forEach(card => {
@@ -408,7 +444,8 @@ async function optimizeRoute() {
     lucide.createIcons();
 
     try {
-        const result = await api.optimizeRoute({ date: state.selectedDate });
+        const startTime = document.getElementById('start-time-input')?.value || routeStartTime;
+        const result = await api.optimizeRoute({ date: state.selectedDate, start_time: startTime });
         state.optimizedRoute = result;
         renderAppointmentList();
     } catch (err) {

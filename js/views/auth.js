@@ -14,7 +14,9 @@ function render(container) {
     container.innerHTML = `
         <div class="min-h-screen flex items-center justify-center py-12">
             <div class="w-full max-w-sm">
-                <h1 class="text-xl font-semibold text-center mb-8">Juno</h1>
+                <div class="text-center mb-8">
+                    <img src="/logo.png" alt="Juno" class="h-12 mx-auto" />
+                </div>
 
                 <div id="auth-error" class="hidden bg-red-50 text-red-600 text-sm rounded-lg p-3 mb-4"></div>
 
